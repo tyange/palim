@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { CellKey, DisplayCell } from "../types/editor.types";
+import type { CellKey, DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 import CellInput from "./CellInput.vue";
 
@@ -63,17 +63,6 @@ const inputStyle = computed(() => {
   };
 });
 
-const selectedCellValue = computed({
-  get() {
-    return selectedCell.value?.value ?? "";
-  },
-  set(value: string) {
-    if (!selectedCell.value) return;
-
-    selectedCell.value.value = value;
-  },
-});
-
 function handleInputCompleted(value: string) {
   if (!selectedCellKey.value) {
     return;
@@ -87,7 +76,9 @@ function handleInputCompleted(value: string) {
 
   currentSelectedCell.value = value;
 
-  const generatedNextCellRowAndCol = selectedCellKey.value.split(":").map((v) => Number(v));
+  const generatedNextCellRowAndCol = selectedCellKey.value
+    .split(":")
+    .map((v) => Number(v));
   const nextCellKey = `${generatedNextCellRowAndCol[0]}:${generatedNextCellRowAndCol[1] + 1}`;
   selectCell(nextCellKey);
 }
@@ -121,7 +112,6 @@ function handleInputCompleted(value: string) {
     <CellInput
       v-if="selectedCellKey"
       :key="selectedCellKey"
-      v-model="selectedCellValue"
       class="absolute"
       :style="inputStyle"
       @completed="handleInputCompleted"
