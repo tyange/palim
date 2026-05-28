@@ -14,18 +14,24 @@ onMounted(() => {
 });
 
 function handleCompositionEnd(event: Event) {
+  if (!inputRef.value) {
+    return;
+  }
+
   const data = (event as CompositionEvent).data;
   emit("completed", data);
   isComposing.value = false;
+  inputRef.value.value = "";
 }
 
 function handleInput(event: Event) {
-  if (isComposing.value) {
+  if (isComposing.value || !inputRef.value) {
     return;
   }
 
   const input = event.target as HTMLInputElement;
   emit("completed", input.value);
+  inputRef.value.value = "";
 }
 </script>
 

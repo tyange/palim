@@ -111,7 +111,6 @@ function handleInputCompleted(value: string) {
     </svg>
     <CellInput
       v-if="selectedCellKey"
-      :key="selectedCellKey"
       class="absolute"
       :style="inputStyle"
       @completed="handleInputCompleted"
