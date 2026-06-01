@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { DEFAULT_CELL_FILL_COLOR, SELECTED_CELL_FILL_COLOR } from "../constants/editor.constant";
-import { DisplayCell } from "../types/editor.types";
-import CellInput from "./CellInput.vue";
+import {
+  DEFAULT_CELL_FILL_COLOR,
+  SELECTED_CELL_FILL_COLOR,
+} from "../constants/editor.constant";
+import type { DisplayCell } from "../types/editor.types.ts";
 
 const props = defineProps<{
   cell: DisplayCell;

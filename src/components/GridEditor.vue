@@ -109,11 +109,11 @@ function handleInputCompleted(value: string) {
         @click="selectCell(key)"
       />
     </svg>
-    <CellInput
+    <!-- <CellInput
       v-if="selectedCellKey"
       class="absolute"
       :style="inputStyle"
       @completed="handleInputCompleted"
-    />
+    /> -->
   </div>
 </template>
