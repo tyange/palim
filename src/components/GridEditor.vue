@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, useTemplateRef } from "vue";
 import type { DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 
@@ -9,12 +9,53 @@ const cellSize = 32;
 const width = cols * cellSize;
 const height = rows * cellSize;
 
+const inputRef = useTemplateRef<HTMLInputElement>("inputEl");
+
 // 원본(source of truth): 원고지 전체 내용을 담는 단일 문자열
 const text = ref("");
+
+// IME 조합 상태: 아직 compositionend 되지 않은(미확정) 글자 추적
+const caretIndex = ref(0);
+const isComposing = ref(false);
+const composingText = ref("");
+
+// 활성 셀 범위 [start, end): 조합 중이면 조합 글자 셀, 아니면 캐럿(다음 입력) 셀
+const activeRange = computed(() => {
+  if (isComposing.value && composingText.value) {
+    const len = [...composingText.value].length;
+    return { start: caretIndex.value - len, end: caretIndex.value };
+  }
+  return { start: caretIndex.value, end: caretIndex.value + 1 };
+});
+
+function syncFromInput() {
+  const el = inputRef.value;
+  if (!el) return;
+  text.value = el.value;
+  caretIndex.value = el.selectionStart ?? el.value.length;
+}
+
+function syncCaret() {
+  const el = inputRef.value;
+  if (!el) return;
+  caretIndex.value = el.selectionStart ?? el.value.length;
+}
+
+function onCompositionUpdate(event: CompositionEvent) {
+  composingText.value = event.data ?? "";
+  const el = inputRef.value;
+  if (el) caretIndex.value = el.selectionStart ?? el.value.length;
+}
+
+function onCompositionEnd() {
+  isComposing.value = false;
+  composingText.value = "";
+}
 
 // 원본을 글자 단위로 쪼개 격자에 분배
 const cells = computed<DisplayCell[]>(() => {
   const chars = [...text.value];
+  const range = activeRange.value;
 
   return Array.from({ length: rows * cols }, (_, index) => ({
     row: Math.floor(index / cols),
@@ -22,6 +63,7 @@ const cells = computed<DisplayCell[]>(() => {
     value: chars[index] ?? "",
     guides: {},
     selected: false,
+    active: index >= range.start && index < range.end,
   }));
 });
 </script>
@@ -59,9 +101,16 @@ const cells = computed<DisplayCell[]>(() => {
       (읽기 한 방향만 — input에 값을 도로 쓰지 않아 carry-over 보존)
     -->
     <input
+      ref="inputEl"
       class="w-full rounded border border-[#bfb8ad] bg-[#fffdf8] px-2 py-1 text-[#1f1a14] outline-none"
       placeholder="여기에 입력하면 원고지에 채워집니다"
-      @input="text = ($event.target as HTMLInputElement).value"
+      @input="syncFromInput"
+      @keyup="syncCaret"
+      @click="syncCaret"
+      @select="syncCaret"
+      @compositionstart="isComposing = true"
+      @compositionupdate="onCompositionUpdate"
+      @compositionend="onCompositionEnd"
     />
   </div>
 </template>

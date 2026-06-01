@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import {
+  ACTIVE_CELL_FILL_COLOR,
+  ACTIVE_CELL_STROKE_COLOR,
   DEFAULT_CELL_FILL_COLOR,
-  SELECTED_CELL_FILL_COLOR,
 } from "../constants/editor.constant";
 import type { DisplayCell } from "../types/editor.types.ts";
 
-const props = defineProps<{
+defineProps<{
   cell: DisplayCell;
   cellSize: number;
 }>();
@@ -24,9 +25,23 @@ const props = defineProps<{
       :y="cell.row * cellSize"
       :width="cellSize"
       :height="cellSize"
-      :fill="cell.selected ? SELECTED_CELL_FILL_COLOR : DEFAULT_CELL_FILL_COLOR"
+      :fill="DEFAULT_CELL_FILL_COLOR"
       stroke="#bda988"
       stroke-width="1"
+      vector-effect="non-scaling-stroke"
+    />
+    <!-- 활성 셀(조합 중 글자 또는 캐럿 위치): 깜박이는 border + bg -->
+    <rect
+      v-if="cell.active"
+      class="active-cell"
+      :x="cell.col * cellSize"
+      :y="cell.row * cellSize"
+      :width="cellSize"
+      :height="cellSize"
+      :fill="ACTIVE_CELL_FILL_COLOR"
+      fill-opacity="0.45"
+      :stroke="ACTIVE_CELL_STROKE_COLOR"
+      stroke-width="2"
       vector-effect="non-scaling-stroke"
     />
     <line
@@ -90,7 +105,7 @@ const props = defineProps<{
       vector-effect="non-scaling-stroke"
     />
     <text
-      v-if="!cell.selected && cell.value"
+      v-if="cell.value"
       :x="cell.col * cellSize + cellSize / 2"
       :y="cell.row * cellSize + cellSize / 2"
       dominant-baseline="central"
@@ -102,3 +117,20 @@ const props = defineProps<{
     </text>
   </g>
 </template>
+
+<style scoped>
+@keyframes active-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.active-cell {
+  animation: active-pulse 1s ease-in-out infinite;
+  transform-box: fill-box;
+}
+</style>

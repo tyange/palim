@@ -13,4 +13,5 @@ export interface DisplayCell {
     diagonalBackward?: boolean;
   };
   selected: boolean;
+  active: boolean;
 }
