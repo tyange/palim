@@ -218,20 +218,13 @@ onUnmounted(() => {
 
 <template>
   <div class="flex max-w-full flex-col gap-2" :style="{ width: `${totalWidth}px` }">
-    <!-- 페이지 번호: 실제 원고지처럼 격자 우측 상단에 'No. 1' 표기 -->
-    <div class="flex items-end justify-end gap-1 pr-1 text-[#c0392b]">
-      <span class="text-sm">No.</span>
-      <span class="min-w-5 border-b border-[#c0392b] text-center text-sm leading-none">
-        1
-      </span>
-    </div>
     <!-- 격자 박스: SVG가 absolute로 이 박스를 채움 -->
     <div
       class="relative w-full overflow-visible"
       :style="{ aspectRatio: `${cols + gutterCols} / ${rows}` }"
     >
       <svg
-        class="absolute inset-0 block h-full w-full bg-[#fffdf6]"
+        class="absolute inset-0 block h-full w-full"
         :viewBox="`0 0 ${totalWidth} ${height}`"
         role="grid"
         aria-label="원고지 에디터"
@@ -252,25 +245,25 @@ onUnmounted(() => {
         <text
           v-for="m in layout.margins"
           :key="`margin:${m.offset}`"
+          class="margin-text"
           :x="width + cellSize / 2"
           :y="m.row * cellSize + cellSize / 2"
           dominant-baseline="central"
           text-anchor="middle"
-          fill="#1f1a14"
           font-size="18"
         >
           {{ m.text }}
         </text>
 
-        <!-- 격자 외곽 테두리 (원고지 특유의 코랄-레드 프레임) -->
+        <!-- 편집 가능한 그리드 영역을 구분하는 외곽 프레임 -->
         <rect
+          class="grid-frame"
           x="0"
           y="0"
           :width="width"
           :height="height"
           fill="none"
-          stroke="#c75c3a"
-          stroke-width="2"
+          stroke-width="1.5"
           vector-effect="non-scaling-stroke"
         />
       </svg>
@@ -303,3 +296,12 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.grid-frame {
+  stroke: var(--border);
+}
+.margin-text {
+  fill: var(--muted);
+}
+</style>

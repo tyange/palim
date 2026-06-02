@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+/* Tailwind v4 다크 변형: <html>에 .dark 클래스가 붙으면 적용 (useColorMode가 토글) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 의미 기반 디자인 토큰 — 색을 컴포넌트에 박지 않고 역할 이름으로 추상화 */
+:root {
+  --background: #f3f3f1;
+  --foreground: #1f1d1b;
+  --muted: #8a857d;
+  --surface: #ffffff;
+  --surface-2: #faf9f7;
+  --border: #e4e2dc;
+  --cell-bg: #ffffff;
+  --grid-line: #e6e4de;
+  --grid-guide: #d8d5cd;
+  --accent: #5b61e6;
+  --accent-contrast: #ffffff;
+}
+
+.dark {
+  --background: #161618;
+  --foreground: #e8e6e1;
+  --muted: #8d8d93;
+  --surface: #1f1f23;
+  --surface-2: #1a1a1d;
+  --border: #2c2c31;
+  --cell-bg: #1d1d20;
+  --grid-line: #2e2e34;
+  --grid-guide: #3a3a41;
+  --accent: #818cf8;
+  --accent-contrast: #16161a;
+}
+
+/* 토큰을 Tailwind 유틸(bg-background, text-foreground …)로 노출 */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

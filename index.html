@@ -5,6 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>palim</title>
+    <!-- 첫 페인트 전에 테마 클래스를 적용해 깜빡임(FOUC) 방지.
+         키/값은 VueUse useColorMode 기본값과 일치 -->
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem("vueuse-color-scheme") || "auto";
+          var dark =
+            pref === "dark" ||
+            (pref === "auto" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          root.classList.toggle("dark", dark);
+          root.classList.toggle("light", !dark);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
