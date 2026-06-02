@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
+import { packCells, flowToGrid } from "../core/layout";
+import { tokenize } from "../core/tokenizer";
 import type { DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 
 const rows = 12;
 const cols = 16;
 const cellSize = 32;
-const width = cols * cellSize;
+const gutterCols = 1; // ③ 행두 금칙으로 밀려난 구두점이 적히는 오른쪽 여백
+const width = cols * cellSize; // 격자 폭
+const totalWidth = (cols + gutterCols) * cellSize; // 여백 포함 전체 폭
 const height = rows * cellSize;
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
@@ -15,9 +19,14 @@ const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
 const text = ref("");
 
 // IME 조합 상태: 아직 compositionend 되지 않은(미확정) 글자 추적
+// caretIndex / composingText 길이는 모두 UTF-16 단위 (textarea selectionStart와 동일 좌표계)
 const caretIndex = ref(0);
 const isComposing = ref(false);
 const composingText = ref("");
+
+// 레이아웃 엔진: 텍스트 → 토큰 분류(①) → 칸 묶기(②③) → 격자 배치(②③)
+// cellText / cellSpan / offsetToCell / margins 등을 한 번에 산출한다.
+const layout = computed(() => flowToGrid(packCells(tokenize(text.value)), rows, cols));
 
 function syncFromInput() {
   const el = inputRef.value;
@@ -45,62 +54,27 @@ function onCompositionEnd() {
   composingText.value = "";
 }
 
-// 텍스트를 격자에 배치.
-// '\n'은 줄바꿈(셀을 차지하지 않고 다음 행 첫 칸으로 이동),
-// 한 줄이 cols를 넘으면 자동으로 다음 행으로 wrap.
-// offsetToCell: 텍스트 오프셋 -> 선형 셀 인덱스 (캐럿/조합 셀 위치 계산용)
-function layoutText(value: string) {
-  const cellChars: string[] = Array.from({ length: rows * cols }, () => "");
-  const offsetToCell: number[] = [];
-  // 셀 인덱스 -> 그 셀에 처음 도달한 텍스트 오프셋 (셀 클릭 시 캐럿 위치 역산용)
-  const cellToOffset: (number | undefined)[] = Array.from(
-    { length: rows * cols },
-    () => undefined,
-  );
-  // 셀 인덱스 -> 그 셀에 표시된 글자의 chars 인덱스 (선택 삭제 시 글자 범위 역산용)
-  const cellToChar: (number | undefined)[] = Array.from(
-    { length: rows * cols },
-    () => undefined,
-  );
-  const chars = [...value];
-
-  let row = 0;
-  let col = 0;
-
-  for (let i = 0; i <= chars.length; i++) {
-    const cell = row * cols + col;
-    offsetToCell[i] = cell;
-    if (cellToOffset[cell] === undefined) cellToOffset[cell] = i;
-    if (i === chars.length) break;
-
-    if (chars[i] === "\n") {
-      row += 1;
-      col = 0;
-      continue;
-    }
-
-    if (row < rows && col < cols) {
-      cellChars[row * cols + col] = chars[i];
-      cellToChar[row * cols + col] = i;
-    }
-    col += 1;
-    if (col >= cols) {
-      col = 0;
-      row += 1;
-    }
+// 캐럿(UTF-16 offset)이 놓인 칸 인덱스를 구한다.
+// - 글 끝이면 다음 입력 칸(endCellIndex)
+// - 토큰 시작 offset이면 그 칸
+// - 한 칸 2자소(숫자·소문자)의 중간 offset이면 그 칸의 span으로 판정
+function caretCell(offset: number): number {
+  const L = layout.value;
+  if (offset >= text.value.length) return L.endCellIndex;
+  const direct = L.offsetToCell.get(offset);
+  if (direct !== undefined) return direct;
+  for (let i = 0; i < L.cellSpan.length; i++) {
+    const s = L.cellSpan[i];
+    if (s && offset >= s[0] && offset < s[1]) return i;
   }
-
-  return { cellChars, offsetToCell, cellToOffset, cellToChar };
+  return L.endCellIndex;
 }
 
-// 셀 클릭: 그 셀의 텍스트 오프셋으로 캐럿 이동.
-// 빈 셀(내용 범위 밖)은 글 끝으로 보냄.
+// 셀 클릭: 그 칸 첫 글자의 offset으로 캐럿 이동. 빈 칸은 글 끝으로.
 // 네이티브 textarea가 실제 입력 위치이므로 focus + setSelectionRange로 함께 옮긴다.
 function moveCaretToCellIndex(cellIndex: number) {
-  const { cellToOffset } = layoutText(text.value);
-  const offset =
-    (cellToOffset[cellIndex] as number | undefined) ?? [...text.value].length;
-
+  const span = layout.value.cellSpan[cellIndex];
+  const offset = span ? span[0] : text.value.length;
   caretIndex.value = offset;
   const el = inputRef.value;
   if (el) {
@@ -110,7 +84,6 @@ function moveCaretToCellIndex(cellIndex: number) {
 }
 
 // 드래그 선택: 셀 단위로 anchor~focus 범위를 추적한다.
-// 같은 셀에서 시작·종료(드래그 없음)면 선택이 아니라 캐럿 이동(클릭)으로 처리.
 const isDragging = ref(false);
 const dragAnchorCell = ref<number | null>(null);
 const dragFocusCell = ref<number | null>(null);
@@ -160,36 +133,34 @@ function endDrag() {
   }
 }
 
-// 선택 밴드(min~max 셀) 안의 실제 글자 인덱스 범위를 구해 원본에서 통째로 잘라낸다.
-// (사이에 낀 '\n'도 함께 제거되어 줄이 깔끔히 당겨짐)
+// 선택 밴드(min~max 셀)가 덮는 UTF-16 offset 구간을 구해 원본에서 통째로 잘라낸다.
+// (사이에 낀 줄바꿈도 함께 제거되어 줄이 깔끔히 당겨짐)
 function deleteSelection(): void {
   const range = selectionRange.value;
   if (!range || range.min === range.max) return;
 
-  const { cellToChar } = layoutText(text.value);
-  let firstChar = Infinity;
-  let lastChar = -1;
+  const { cellSpan } = layout.value;
+  let firstStart = Infinity;
+  let lastEnd = -1;
   for (let i = range.min; i <= range.max; i++) {
-    const ci = cellToChar[i];
-    if (ci === undefined) continue;
-    if (ci < firstChar) firstChar = ci;
-    if (ci > lastChar) lastChar = ci;
+    const s = cellSpan[i];
+    if (!s) continue;
+    if (s[0] < firstStart) firstStart = s[0];
+    if (s[1] > lastEnd) lastEnd = s[1];
   }
 
   clearSelection();
-  if (lastChar < 0) return; // 선택 밴드에 글자가 없음
+  if (lastEnd < 0) return; // 선택 밴드에 글자가 없음
 
-  const chars = [...text.value];
-  chars.splice(firstChar, lastChar - firstChar + 1);
-  const next = chars.join("");
+  const next = text.value.slice(0, firstStart) + text.value.slice(lastEnd);
   text.value = next;
-  caretIndex.value = firstChar;
+  caretIndex.value = firstStart;
 
   const el = inputRef.value;
   if (el) {
     el.value = next;
     el.focus();
-    el.setSelectionRange(firstChar, firstChar);
+    el.setSelectionRange(firstStart, firstStart);
   }
 }
 
@@ -201,20 +172,19 @@ function onKeyDown(event: KeyboardEvent) {
 }
 
 const cells = computed<DisplayCell[]>(() => {
-  const { cellChars, offsetToCell } = layoutText(text.value);
+  const L = layout.value;
 
-  const cellAt = (offset: number) =>
-    offsetToCell[Math.max(0, Math.min(offset, offsetToCell.length - 1))];
-
-  // 활성 셀: 조합 중이면 조합 글자가 놓인 셀들, 아니면 캐럿(다음 입력) 셀
+  // 활성 칸: 조합 중이면 조합 글자가 놓인 칸들, 아니면 캐럿(다음 입력) 칸
   const activeCells = new Set<number>();
   if (isComposing.value && composingText.value) {
-    const len = [...composingText.value].length;
-    for (let k = caretIndex.value - len; k < caretIndex.value; k++) {
-      activeCells.add(cellAt(k));
+    const start = caretIndex.value - composingText.value.length;
+    for (let i = 0; i < L.cellSpan.length; i++) {
+      const s = L.cellSpan[i];
+      if (s && s[1] > start && s[0] < caretIndex.value) activeCells.add(i);
     }
+    if (activeCells.size === 0) activeCells.add(caretCell(caretIndex.value));
   } else {
-    activeCells.add(cellAt(caretIndex.value));
+    activeCells.add(caretCell(caretIndex.value));
   }
 
   const range = selectionRange.value;
@@ -223,11 +193,11 @@ const cells = computed<DisplayCell[]>(() => {
   return Array.from({ length: rows * cols }, (_, index) => ({
     row: Math.floor(index / cols),
     col: index % cols,
-    value: cellChars[index] ?? "",
+    value: L.cellText[index] ?? "",
     guides: {},
     // 선택 밴드 안에서 실제 글자가 있는 칸만 하이라이트
     selected: selecting
-      ? index >= range.min && index <= range.max && cellChars[index] !== ""
+      ? index >= range.min && index <= range.max && L.cellText[index] !== ""
       : false,
     // 선택 중에는 캐럿 강조를 숨겨 혼동 방지
     active: !selecting && activeCells.has(index),
@@ -247,7 +217,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex max-w-full flex-col gap-2" :style="{ width: `${width}px` }">
+  <div class="flex max-w-full flex-col gap-2" :style="{ width: `${totalWidth}px` }">
     <!-- 페이지 번호: 실제 원고지처럼 격자 우측 상단에 'No. 1' 표기 -->
     <div class="flex items-end justify-end gap-1 pr-1 text-[#c0392b]">
       <span class="text-sm">No.</span>
@@ -258,11 +228,11 @@ onUnmounted(() => {
     <!-- 격자 박스: SVG가 absolute로 이 박스를 채움 -->
     <div
       class="relative w-full overflow-visible"
-      :style="{ aspectRatio: `${cols} / ${rows}` }"
+      :style="{ aspectRatio: `${cols + gutterCols} / ${rows}` }"
     >
       <svg
-        class="absolute inset-0 block h-full w-full border-2 border-[#c75c3a] bg-[#fffdf6]"
-        :viewBox="`0 0 ${width} ${height}`"
+        class="absolute inset-0 block h-full w-full bg-[#fffdf6]"
+        :viewBox="`0 0 ${totalWidth} ${height}`"
         role="grid"
         aria-label="원고지 에디터"
         :aria-rowcount="rows"
@@ -277,21 +247,44 @@ onUnmounted(() => {
           @cellmousedown="onCellMouseDown"
           @cellmouseenter="onCellMouseEnter"
         />
+
+        <!-- ③ 행두 금칙으로 앞 줄 오른쪽 여백에 적힌 구두점 -->
+        <text
+          v-for="m in layout.margins"
+          :key="`margin:${m.offset}`"
+          :x="width + cellSize / 2"
+          :y="m.row * cellSize + cellSize / 2"
+          dominant-baseline="central"
+          text-anchor="middle"
+          fill="#1f1a14"
+          font-size="18"
+        >
+          {{ m.text }}
+        </text>
+
+        <!-- 격자 외곽 테두리 (원고지 특유의 코랄-레드 프레임) -->
+        <rect
+          x="0"
+          y="0"
+          :width="width"
+          :height="height"
+          fill="none"
+          stroke="#c75c3a"
+          stroke-width="2"
+          vector-effect="non-scaling-stroke"
+        />
       </svg>
 
       <!--
-        보이는 입력 상자는 제거하고, 화면에 안 보이지만 포커스 가능한
-        textarea를 입력 싱크로 남긴다. SVG 격자는 직접 IME 조합을 받을 수
-        없으므로(편집 가능 요소만 가능) 이 숨은 textarea가 키보드/IME 입력을
-        수집한다. 셀 클릭 시 moveCaretToCell이 focus + setSelectionRange로
-        캐럿을 옮긴다.
+        화면에 안 보이지만 포커스 가능한 textarea가 키보드/IME 입력을 수집한다.
+        SVG 격자는 직접 IME 조합을 받을 수 없으므로(편집 가능 요소만 가능) 이 숨은
+        textarea가 입력을 받고, 셀 클릭 시 moveCaretToCellIndex가 focus +
+        setSelectionRange로 캐럿을 옮긴다.
 
-        v-model 대신 native input 이벤트를 직접 받음.
-        v-model은 IME 조합 중 input 이벤트를 무시하므로 조합 중인 글자가
-        반영되지 않음. @input은 조합 중에도 발생하므로 buffer 상태가 실시간 표시됨.
-        (읽기 한 방향만 — input에 값을 도로 쓰지 않아 carry-over 보존)
-        textarea라서 Enter로 줄바꿈('\n')을 입력할 수 있음.
-        display:none은 포커스 불가이므로 금지 — 1px 투명 + pointer-events:none.
+        v-model 대신 native input 이벤트를 직접 받음. v-model은 IME 조합 중 input
+        이벤트를 무시하므로 조합 중인 글자가 반영되지 않음. @input은 조합 중에도
+        발생하므로 buffer 상태가 실시간 표시됨. textarea라서 Enter로 줄바꿈('\n')
+        입력 가능. display:none은 포커스 불가이므로 금지 — 1px 투명 + pointer-events:none.
       -->
       <textarea
         ref="inputEl"

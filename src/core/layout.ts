@@ -115,6 +115,12 @@ export interface GridLayout {
   cellText: string[];
   /** 칸 인덱스 → 그 칸 첫 토큰의 offset (칸 클릭 → 캐럿 위치 역산용) */
   cellToOffset: (number | undefined)[];
+  /** 칸 인덱스 → 그 칸이 덮는 UTF-16 offset 구간 [start, end) (선택 삭제·캐럿용) */
+  cellSpan: (readonly [number, number] | undefined)[];
+  /** 토큰 시작 offset → 칸 인덱스 (캐럿 offset → 활성 칸 역산용) */
+  offsetToCell: Map<number, number>;
+  /** 글 끝(다음 입력)이 놓일 칸 인덱스 — 캐럿이 글 끝일 때 강조용 */
+  endCellIndex: number;
   /** ③ 행두 금칙으로 줄 오른쪽 여백에 배치된 칸들 */
   margins: MarginCell[];
   /** 격자(여백 포함)를 넘어 배치하지 못한 칸 수 */
@@ -141,6 +147,11 @@ export function flowToGrid(
     { length: total },
     () => undefined,
   );
+  const cellSpan: (readonly [number, number] | undefined)[] = Array.from(
+    { length: total },
+    () => undefined,
+  );
+  const offsetToCell = new Map<number, number>();
   const margins: MarginCell[] = [];
 
   let row = 0;
@@ -170,7 +181,12 @@ export function flowToGrid(
 
     const idx = row * cols + col;
     cellText[idx] = unit.text;
-    cellToOffset[idx] = unit.tokens[0].offset;
+    const start = unit.tokens[0].offset;
+    const last = unit.tokens[unit.tokens.length - 1];
+    cellToOffset[idx] = start;
+    cellSpan[idx] = [start, last.offset + last.char.length] as const;
+    for (const t of unit.tokens) offsetToCell.set(t.offset, idx);
+
     col += 1;
     if (col >= cols) {
       col = 0;
@@ -181,5 +197,18 @@ export function flowToGrid(
     }
   }
 
-  return { rows, cols, cellText, cellToOffset, margins, overflow };
+  // 글 끝(다음 입력) 칸 — 격자를 다 채웠으면 마지막 칸으로 클램프
+  const endCellIndex = row < rows ? row * cols + col : total - 1;
+
+  return {
+    rows,
+    cols,
+    cellText,
+    cellToOffset,
+    cellSpan,
+    offsetToCell,
+    endCellIndex,
+    margins,
+    overflow,
+  };
 }
