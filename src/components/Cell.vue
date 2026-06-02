@@ -34,7 +34,7 @@ const emit = defineEmits<{
       :width="cellSize"
       :height="cellSize"
       :fill="DEFAULT_CELL_FILL_COLOR"
-      stroke="#bda988"
+      stroke="#df6f49"
       stroke-width="1"
       vector-effect="non-scaling-stroke"
     />

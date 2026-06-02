@@ -247,14 +247,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex max-w-full flex-col gap-3" :style="{ width: `${width}px` }">
+  <div class="flex max-w-full flex-col gap-2" :style="{ width: `${width}px` }">
+    <!-- 페이지 번호: 실제 원고지처럼 격자 우측 상단에 'No. 1' 표기 -->
+    <div class="flex items-end justify-end gap-1 pr-1 text-[#c0392b]">
+      <span class="text-sm">No.</span>
+      <span class="min-w-5 border-b border-[#c0392b] text-center text-sm leading-none">
+        1
+      </span>
+    </div>
     <!-- 격자 박스: SVG가 absolute로 이 박스를 채움 -->
     <div
       class="relative w-full overflow-visible"
       :style="{ aspectRatio: `${cols} / ${rows}` }"
     >
       <svg
-        class="absolute inset-0 block h-full w-full border border-[#d7d1c6] bg-[#fffdf8]"
+        class="absolute inset-0 block h-full w-full border-2 border-[#c75c3a] bg-[#fffdf6]"
         :viewBox="`0 0 ${width} ${height}`"
         role="grid"
         aria-label="원고지 에디터"

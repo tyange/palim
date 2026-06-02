@@ -50,7 +50,7 @@ const guideOptions = [
         v-for="guide in guideOptions"
         :key="guide"
         type="button"
-        class="h-[30px] cursor-pointer rounded border border-[#bfb8ad] bg-[#fffdf8] px-2.5 text-[13px] text-[#1f1a14] shadow-none hover:enabled:border-[#1b5f98] disabled:cursor-not-allowed disabled:text-[#9b948a]"
+        class="h-[30px] cursor-pointer rounded border border-[#bfb8ad] bg-[#fffdf8] px-2.5 text-[13px] text-[#1f1a14] shadow-none hover:enabled:border-[#c75c3a] disabled:cursor-not-allowed disabled:text-[#9b948a]"
         aria-pressed="false"
       >
         {{ guide }}
@@ -59,7 +59,7 @@ const guideOptions = [
 
     <button
       type="button"
-      class="ml-auto h-[30px] cursor-pointer rounded border border-[#1b5f98] bg-[#1b5f98] px-2.5 text-[13px] text-white shadow-none hover:border-[#1b5f98]"
+      class="ml-auto h-[30px] cursor-pointer rounded border border-[#c75c3a] bg-[#c75c3a] px-2.5 text-[13px] text-white shadow-none hover:border-[#a8492c] hover:bg-[#a8492c]"
     >
       JSON export
     </button>
