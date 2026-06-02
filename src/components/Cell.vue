@@ -10,15 +10,21 @@ defineProps<{
   cell: DisplayCell;
   cellSize: number;
 }>();
+
+const emit = defineEmits<{
+  select: [cell: DisplayCell];
+}>();
 </script>
 
 <template>
   <g
     :key="`${cell.row}-${cell.col}`"
+    class="cell-group"
     role="gridcell"
     :aria-rowindex="cell.row + 1"
     :aria-colindex="cell.col + 1"
     :aria-selected="cell.selected"
+    @click="emit('select', cell)"
   >
     <rect
       :x="cell.col * cellSize"
@@ -132,5 +138,9 @@ defineProps<{
 .active-cell {
   animation: active-pulse 1s ease-in-out infinite;
   transform-box: fill-box;
+}
+
+.cell-group {
+  cursor: pointer;
 }
 </style>
