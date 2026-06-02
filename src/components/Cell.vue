@@ -12,7 +12,8 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  select: [cell: DisplayCell];
+  cellmousedown: [cell: DisplayCell];
+  cellmouseenter: [cell: DisplayCell];
 }>();
 </script>
 
@@ -24,7 +25,8 @@ const emit = defineEmits<{
     :aria-rowindex="cell.row + 1"
     :aria-colindex="cell.col + 1"
     :aria-selected="cell.selected"
-    @click="emit('select', cell)"
+    @mousedown.prevent="emit('cellmousedown', cell)"
+    @mouseenter="emit('cellmouseenter', cell)"
   >
     <rect
       :x="cell.col * cellSize"
@@ -35,6 +37,16 @@ const emit = defineEmits<{
       stroke="#bda988"
       stroke-width="1"
       vector-effect="non-scaling-stroke"
+    />
+    <!-- 드래그로 선택된 셀: 반투명 하이라이트 -->
+    <rect
+      v-if="cell.selected"
+      :x="cell.col * cellSize"
+      :y="cell.row * cellSize"
+      :width="cellSize"
+      :height="cellSize"
+      fill="#b07232"
+      fill-opacity="0.22"
     />
     <!-- 활성 셀(조합 중 글자 또는 캐럿 위치): 깜박이는 border + bg -->
     <rect
