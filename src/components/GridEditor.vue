@@ -21,6 +21,9 @@ const text = ref("");
 // IME 조합 상태: 아직 compositionend 되지 않은(미확정) 글자 추적
 // caretIndex / composingText 길이는 모두 UTF-16 단위 (textarea selectionStart와 동일 좌표계)
 const caretIndex = ref(0);
+// 빈 칸에 캐럿이 놓이면 그 칸 인덱스를 담는다(가상 캐럿). null이면 텍스트 모드(캐럿=caretIndex).
+// 가상 모드에선 공백을 만들지 않고 화면 캐럿만 그 칸에 그린다. 실제 입력 직전(materializeCaret)에만 실체화.
+const virtualCell = ref<number | null>(null);
 const isComposing = ref(false);
 const composingText = ref("");
 
@@ -32,6 +35,8 @@ function syncFromInput() {
   const el = inputRef.value;
   if (!el) return;
   clearSelection();
+  // 실제 입력이 들어온 시점 = 텍스트 모드 확정 (백스톱: beforeinput에서 못 비웠어도 정리)
+  virtualCell.value = null;
   text.value = el.value;
   caretIndex.value = el.selectionStart ?? el.value.length;
 }
@@ -47,6 +52,13 @@ function onCompositionUpdate(event: CompositionEvent) {
   composingText.value = event.data ?? "";
   const el = inputRef.value;
   if (el) caretIndex.value = el.selectionStart ?? el.value.length;
+}
+
+// 조합 시작은 입력의 가장 이른 시점 → 빈 칸이면 여기서 먼저 실체화해야
+// IME가 실제 offset 위치에서 조합을 시작한다.
+function onCompositionStart() {
+  materializeCaret();
+  isComposing.value = true;
 }
 
 function onCompositionEnd() {
@@ -70,16 +82,60 @@ function caretCell(offset: number): number {
   return L.endCellIndex;
 }
 
-// 셀 클릭: 그 칸 첫 글자의 offset으로 캐럿 이동. 빈 칸은 글 끝으로.
-// 네이티브 textarea가 실제 입력 위치이므로 focus + setSelectionRange로 함께 옮긴다.
-function moveCaretToCellIndex(cellIndex: number) {
-  const span = layout.value.cellSpan[cellIndex];
-  const offset = span ? span[0] : text.value.length;
+// 가상 칸을 실제 텍스트 위치로 실체화한다. target 칸이 입력 위치가 되도록, 직전의
+// '내용 있는 칸' 뒤에 사이 빈 칸 수만큼 공백을 끼워넣는다(글 끝 뒤·중간 갭 모두 처리).
+// 공백은 행두 금칙 대상이 아니라 항상 한 칸씩 점유하므로 칸 수만큼의 공백이 그 칸들을
+// 정확히 메운다. 입력 직전(@beforeinput·compositionstart)에만 호출 — 탐색만 하다 떠나면
+// 텍스트에 흔적이 남지 않는다(이게 사전 공백 채우기와의 차이).
+function materializeCaret() {
+  if (virtualCell.value === null) return;
+  const target = virtualCell.value;
+  const { cellSpan } = layout.value;
+  let insertAt = 0; // 직전 내용 칸의 끝 offset (없으면 글 맨 앞)
+  let prevCell = -1;
+  for (let i = target - 1; i >= 0; i--) {
+    const s = cellSpan[i];
+    if (s) {
+      insertAt = s[1];
+      prevCell = i;
+      break;
+    }
+  }
+  const pad = " ".repeat(target - prevCell - 1); // 직전 내용 칸과 target 사이 빈 칸 수
+  const next = text.value.slice(0, insertAt) + pad + text.value.slice(insertAt);
+  const offset = insertAt + pad.length; // target 칸이 시작될 offset
+  text.value = next;
   caretIndex.value = offset;
+  virtualCell.value = null;
   const el = inputRef.value;
   if (el) {
-    el.focus();
+    el.value = next;
     el.setSelectionRange(offset, offset);
+  }
+}
+
+// 셀 클릭/방향키 이동의 공통 처리.
+// - 글자·공백이 있는 칸: 그 칸 시작 offset으로 텍스트 모드(virtualCell=null)
+// - 빈 칸: 가상 모드(virtualCell=cellIndex). 공백을 만들지 않고 화면 캐럿만 그 칸에 그린다.
+//   textarea selection은 글 끝에 주차해 두고, 실제 입력 시 materializeCaret가 실체화한다.
+function moveCaretToCellIndex(cellIndex: number) {
+  const span = layout.value.cellSpan[cellIndex];
+  const el = inputRef.value;
+  if (span) {
+    virtualCell.value = null;
+    caretIndex.value = span[0];
+    if (el) {
+      el.focus();
+      el.setSelectionRange(span[0], span[0]);
+    }
+  } else {
+    virtualCell.value = cellIndex;
+    const end = text.value.length;
+    caretIndex.value = end;
+    if (el) {
+      el.focus();
+      el.setSelectionRange(end, end);
+    }
   }
 }
 
@@ -164,21 +220,78 @@ function deleteSelection(): void {
   }
 }
 
+// 방향키 → 격자 한 칸 이동량 [dRow, dCol]
+const arrowDelta: Record<string, readonly [number, number]> = {
+  ArrowUp: [-1, 0],
+  ArrowDown: [1, 0],
+  ArrowLeft: [0, -1],
+  ArrowRight: [0, 1],
+};
+
+// 현재 캐럿이 놓인 칸.
+// - 가상 모드: 그 빈 칸
+// - 캐럿이 글 끝(마지막 글자 바로 뒤)이면: 방금 친 마지막 글자가 놓인 칸을 기준으로.
+//   글 끝 캐럿은 caretCell상 '다음 칸(endCellIndex)'으로 가는데, 그러면 입력 직후 ↑↓가
+//   글자보다 한 칸 옆(col+1)에서 출발해 어긋난다. IME 확정 시의 캐럿 점프도 이걸로 흡수.
+// - 그 외: 캐럿 offset이 놓인 칸
+function currentCell(): number {
+  if (virtualCell.value !== null) return virtualCell.value;
+  if (caretIndex.value >= text.value.length && caretIndex.value > 0) {
+    return caretCell(caretIndex.value - 1);
+  }
+  return caretCell(caretIndex.value);
+}
+
+// origin 칸에서 격자 한 칸 이동 (경계 밖이면 무시)
+function navByDelta(delta: readonly [number, number], origin: number) {
+  const r = Math.floor(origin / cols) + delta[0];
+  const c = (origin % cols) + delta[1];
+  if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+  moveCaretToCellIndex(r * cols + c);
+}
+
+// 이 키 입력이 '텍스트 입력의 시작'인가 — 가상 칸 실체화 타이밍 판정.
+// IME 첫 자모 keydown은 compositionstart보다 먼저이고 keyCode 229("Process")로 식별된다.
+// 이 시점(=조합 시작 전)에 실체화해야 IME가 올바른 offset에서 조합을 시작한다
+// (compositionstart/beforeinput은 이미 옛 위치에 앵커가 잡힌 뒤라 글 끝에서 조합됨 — 버그2).
+function startsTextInput(e: KeyboardEvent): boolean {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  // keyCode 229 = IME가 처리 중인 키(조합 시작). deprecated지만 IME 감지의 표준 관용구.
+  const imeKeyCode = (e as { keyCode?: number }).keyCode === 229;
+  if (imeKeyCode || e.key === "Process") return true;
+  if (e.key === "Enter") return true; // 줄바꿈도 입력
+  return [...e.key].length === 1; // 단일 문자(printable)
+}
+
 function onKeyDown(event: KeyboardEvent) {
-  if (event.key === "Backspace" && hasSelection.value && !isComposing.value) {
+  if (event.key === "Backspace") {
+    if (isComposing.value) return; // 조합 중 자모 삭제는 IME에 맡김
+    if (hasSelection.value) {
+      event.preventDefault();
+      deleteSelection();
+    } else if (virtualCell.value !== null) {
+      // 빈 칸엔 지울 게 없음 → 네이티브 삭제(글 끝 글자 제거)를 막고 한 칸 왼쪽으로
+      event.preventDefault();
+      if (virtualCell.value > 0) moveCaretToCellIndex(virtualCell.value - 1);
+    }
+    return; // 텍스트 모드: 네이티브 백스페이스에 맡김
+  }
+
+  // 모든 방향키를 칸 단위 이동으로 통일 — 빈 칸도 캐럿이 앉을 수 있어 중간 갭을 넘나든다.
+  const delta = arrowDelta[event.key];
+  if (delta) {
+    // 조합 중 keydown은 무시한다. caret을 건드리면 IME가 글자를 복제·깨뜨리므로, 네이티브가
+    // 조합을 확정하게 두면 같은 키에 대해 isComposing=false인 두 번째 keydown이 곧바로 와서
+    // (확정 후 캐럿을 흡수한 currentCell 기준으로) 이동을 수행한다.
+    if (isComposing.value) return;
     event.preventDefault();
-    deleteSelection();
+    navByDelta(delta, currentCell());
     return;
   }
 
-  if ((event.key === "ArrowUp" || event.key === "ArrowDown") && !isComposing.value) {
-    event.preventDefault();
-    const cellIdx = caretCell(caretIndex.value);
-    const row = Math.floor(cellIdx / cols);
-    const col = cellIdx % cols;
-    const targetRow = event.key === "ArrowUp" ? row - 1 : row + 1;
-    if (targetRow < 0 || targetRow >= rows) return;
-    moveCaretToCellIndex(targetRow * cols + col);
+  // 가상 칸에서 텍스트 입력이 시작되려 함 → 조합 시작 전(여기서) 실체화 (IME 안전)
+  if (!isComposing.value && virtualCell.value !== null && startsTextInput(event)) {
+    materializeCaret();
   }
 }
 
@@ -195,7 +308,8 @@ const cells = computed<DisplayCell[]>(() => {
     }
     if (activeCells.size === 0) activeCells.add(caretCell(caretIndex.value));
   } else {
-    activeCells.add(caretCell(caretIndex.value));
+    // 캐럿이 놓인 칸(글 끝이면 마지막 글자 칸)을 강조 — 이동 기준점과 동일하게 맞춘다
+    activeCells.add(currentCell());
   }
 
   const range = selectionRange.value;
@@ -295,12 +409,13 @@ onUnmounted(() => {
         aria-label="원고지 입력"
         class="absolute left-0 top-0 h-px w-px resize-none overflow-hidden border-0 p-0 opacity-0"
         style="pointer-events: none"
+        @beforeinput="materializeCaret"
         @input="syncFromInput"
         @keydown="onKeyDown"
         @keyup="syncCaret"
         @click="syncCaret"
         @select="syncCaret"
-        @compositionstart="isComposing = true"
+        @compositionstart="onCompositionStart"
         @compositionupdate="onCompositionUpdate"
         @compositionend="onCompositionEnd"
       />
