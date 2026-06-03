@@ -168,6 +168,17 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key === "Backspace" && hasSelection.value && !isComposing.value) {
     event.preventDefault();
     deleteSelection();
+    return;
+  }
+
+  if ((event.key === "ArrowUp" || event.key === "ArrowDown") && !isComposing.value) {
+    event.preventDefault();
+    const cellIdx = caretCell(caretIndex.value);
+    const row = Math.floor(cellIdx / cols);
+    const col = cellIdx % cols;
+    const targetRow = event.key === "ArrowUp" ? row - 1 : row + 1;
+    if (targetRow < 0 || targetRow >= rows) return;
+    moveCaretToCellIndex(targetRow * cols + col);
   }
 }
 
