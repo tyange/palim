@@ -17,7 +17,7 @@ import ThemeToggle from "../components/ThemeToggle.vue";
       <ThemeToggle />
     </header>
 
-    <EditorToolbar />
+    <EditorToolbar v-if="false" />
 
     <div class="flex flex-wrap items-start gap-6">
       <div class="flex flex-col gap-2">
