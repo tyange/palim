@@ -1,22 +1,19 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
-import { packCells, flowToGrid } from "../core/layout";
-import { tokenize } from "../core/tokenizer";
+import { GRID, useManuscriptStore } from "../stores/manuscript";
 import type { DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 
-const rows = 12;
-const cols = 16;
-const cellSize = 32;
-const gutterCols = 1; // ③ 행두 금칙으로 밀려난 구두점이 적히는 오른쪽 여백
+const { rows, cols, cellSize, gutterCols } = GRID;
 const width = cols * cellSize; // 격자 폭
 const totalWidth = (cols + gutterCols) * cellSize; // 여백 포함 전체 폭
 const height = rows * cellSize;
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
 
-// 원본(source of truth): 원고지 전체 내용을 담는 단일 문자열
-const text = ref("");
+// 원본(source of truth)과 레이아웃은 스토어에서 공유 — 프리뷰가 같은 문서를 본다.
+const { text, layout } = storeToRefs(useManuscriptStore());
 
 // IME 조합 상태: 아직 compositionend 되지 않은(미확정) 글자 추적
 // caretIndex / composingText 길이는 모두 UTF-16 단위 (textarea selectionStart와 동일 좌표계)
@@ -26,10 +23,6 @@ const caretIndex = ref(0);
 const virtualCell = ref<number | null>(null);
 const isComposing = ref(false);
 const composingText = ref("");
-
-// 레이아웃 엔진: 텍스트 → 토큰 분류(①) → 칸 묶기(②③) → 격자 배치(②③)
-// cellText / cellSpan / offsetToCell / margins 등을 한 번에 산출한다.
-const layout = computed(() => flowToGrid(packCells(tokenize(text.value)), rows, cols));
 
 function syncFromInput() {
   const el = inputRef.value;
