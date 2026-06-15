@@ -6,6 +6,11 @@ import type { DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 
 const { rows, cols, cellSize, gutterCols } = GRID;
+// 줄바꿈·soft-wrap 표식. ↪는 기본적으로 emoji presentation으로 렌더되어(둥근 색 박스)
+// muted 색이 안 먹으므로 변이 선택자 U+FE0E를 붙여 text presentation으로 강제한다.
+const NEWLINE_MARK = "¶";
+const SOFTWRAP_MARK = "↪︎"; // ↪ + text presentation selector(U+FE0E)
+
 const width = cols * cellSize; // 격자 폭
 const totalWidth = (cols + gutterCols) * cellSize; // 여백 포함 전체 폭
 const height = rows * cellSize;
@@ -370,7 +375,21 @@ onUnmounted(() => {
           text-anchor="middle"
           font-size="16"
           aria-hidden="true"
-        >↵</text>
+        >{{ NEWLINE_MARK }}</text>
+
+        <!-- 자동 줄넘김(soft-wrap) 표식 — 오른쪽 여백에 ↳로 표시해 진짜 줄바꿈(↵)과 구분.
+             칸을 넘쳐 다음 행으로 이어졌을 뿐 출력에선 한 줄임을 알린다. -->
+        <text
+          v-for="r in layout.softWraps"
+          :key="`sw:${r}`"
+          class="softwrap-mark"
+          :x="width + cellSize / 2"
+          :y="r * cellSize + cellSize / 2"
+          dominant-baseline="central"
+          text-anchor="middle"
+          font-size="14"
+          aria-hidden="true"
+        >{{ SOFTWRAP_MARK }}</text>
 
         <!-- ③ 행두 금칙으로 앞 줄 오른쪽 여백에 적힌 구두점 -->
         <text
@@ -440,6 +459,12 @@ onUnmounted(() => {
 .newline-mark {
   fill: var(--muted);
   opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+.softwrap-mark {
+  fill: var(--muted);
+  opacity: 0.35;
   pointer-events: none;
   user-select: none;
 }

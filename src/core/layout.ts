@@ -133,6 +133,8 @@ export interface GridLayout {
   margins: MarginCell[];
   /** 사용자가 친 줄바꿈(\n)이 놓인 위치들 — 자동 줄넘김과 구분해 표식으로 그린다 */
   newlines: NewlineMark[];
+  /** 자동 줄넘김(soft-wrap)된 행 인덱스들 — 오른쪽 여백에 continuation 표식을 그린다 */
+  softWraps: number[];
   /** 격자(여백 포함)를 넘어 배치하지 못한 칸 수 */
   overflow: number;
 }
@@ -164,6 +166,7 @@ export function flowToGrid(
   const offsetToCell = new Map<number, number>();
   const margins: MarginCell[] = [];
   const newlines: NewlineMark[] = [];
+  const softWraps: number[] = [];
 
   let row = 0;
   let col = 0;
@@ -191,6 +194,10 @@ export function flowToGrid(
       overflow += 1;
       continue;
     }
+
+    // 이 내용이 자동 줄넘김 직후(앞 행이 가득 참) 새 행 첫 칸에 놓임 → 앞 행은 soft-wrap.
+    // \n 직후엔 justWrapped=false라 잡히지 않는다(의도된 줄바꿈과 구분).
+    if (justWrapped && col === 0 && row > 0) softWraps.push(row - 1);
 
     const idx = row * cols + col;
     cellText[idx] = unit.text;
@@ -223,6 +230,7 @@ export function flowToGrid(
     endCellIndex,
     margins,
     newlines,
+    softWraps,
     overflow,
   };
 }
