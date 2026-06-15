@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CornerDownLeft, WrapText } from "lucide-vue-next";
+import { CornerDownLeft } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
 import { GRID, useManuscriptStore } from "../stores/manuscript";
@@ -12,6 +12,16 @@ const MARK_SIZE = 16; // 줄바꿈·soft-wrap 아이콘 크기(px, SVG 단위)
 const width = cols * cellSize; // 격자 폭
 const totalWidth = (cols + gutterCols) * cellSize; // 여백 포함 전체 폭
 const height = rows * cellSize;
+
+// soft-wrap 커넥터: 가득 찬 행 r의 오른쪽 끝과 다음 행 r+1의 오른쪽 끝을 여백에서
+// 곡선으로 이어 "두 줄이 사실 한 줄로 이어짐"을 보인다. (자동 줄넘김 ≠ 진짜 줄바꿈)
+function softWrapPath(r: number): string {
+  const x0 = width + 4; // 격자 오른쪽 끝 살짝 바깥(마지막 칸 글자와 겹침 방지)
+  const xBulge = width + cellSize * 0.6; // 여백 쪽 정점 (gutter 안)
+  const yTop = r * cellSize + cellSize / 2;
+  const yBot = (r + 1) * cellSize + cellSize / 2;
+  return `M ${x0} ${yTop} Q ${xBulge} ${(yTop + yBot) / 2} ${x0} ${yBot}`;
+}
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
 
@@ -374,17 +384,19 @@ onUnmounted(() => {
           <CornerDownLeft :size="MARK_SIZE" />
         </g>
 
-        <!-- 자동 줄넘김(soft-wrap) 표식 — 오른쪽 여백에 표시해 진짜 줄바꿈과 구분.
-             칸을 넘쳐 다음 행으로 이어졌을 뿐 출력에선 한 줄임을 알린다. -->
-        <g
+        <!-- 자동 줄넘김(soft-wrap) 커넥터 — 가득 찬 행과 다음 행의 오른쪽 끝을 여백에서
+             곡선으로 이어 두 줄이 한 줄로 이어짐을 보인다(진짜 줄바꿈 ↵과 구분). -->
+        <path
           v-for="r in layout.softWraps"
           :key="`sw:${r}`"
           class="softwrap-mark"
-          :transform="`translate(${width + (cellSize - MARK_SIZE) / 2}, ${r * cellSize + (cellSize - MARK_SIZE) / 2})`"
+          :d="softWrapPath(r)"
+          fill="none"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          vector-effect="non-scaling-stroke"
           aria-hidden="true"
-        >
-          <WrapText :size="MARK_SIZE" />
-        </g>
+        />
 
         <!-- ③ 행두 금칙으로 앞 줄 오른쪽 여백에 적힌 구두점 -->
         <text
@@ -458,8 +470,8 @@ onUnmounted(() => {
   pointer-events: none;
 }
 .softwrap-mark {
-  color: var(--muted);
-  opacity: 0.4;
+  stroke: var(--muted);
+  opacity: 0.5;
   pointer-events: none;
 }
 </style>
