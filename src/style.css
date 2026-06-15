@@ -16,6 +16,8 @@
   --grid-guide: #d8d5cd;
   --accent: #5b61e6;
   --accent-contrast: #ffffff;
+  /* 원고지 본문용 명조(serif) 폰트 — Cell/미리보기 글자에 사용 */
+  --font-manuscript: "Noto Serif KR", serif;
 }
 
 .dark {

@@ -147,6 +147,7 @@ const emit = defineEmits<{
 }
 .cell-text {
   fill: var(--foreground);
+  font-family: var(--font-manuscript);
 }
 
 @keyframes active-pulse {

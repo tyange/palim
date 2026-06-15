@@ -422,5 +422,6 @@ onUnmounted(() => {
 }
 .margin-text {
   fill: var(--muted);
+  font-family: var(--font-manuscript);
 }
 </style>
