@@ -359,6 +359,19 @@ onUnmounted(() => {
           @cellmouseenter="onCellMouseEnter"
         />
 
+        <!-- 사용자가 친 줄바꿈(\n) 표식 — 칸을 안 차지하는 \n을 보이게 해 자동 줄넘김과 구분 -->
+        <text
+          v-for="nl in layout.newlines"
+          :key="`nl:${nl.offset}`"
+          class="newline-mark"
+          :x="nl.col * cellSize + cellSize / 2"
+          :y="nl.row * cellSize + cellSize / 2"
+          dominant-baseline="central"
+          text-anchor="middle"
+          font-size="16"
+          aria-hidden="true"
+        >↵</text>
+
         <!-- ③ 행두 금칙으로 앞 줄 오른쪽 여백에 적힌 구두점 -->
         <text
           v-for="m in layout.margins"
@@ -423,5 +436,11 @@ onUnmounted(() => {
 .margin-text {
   fill: var(--muted);
   font-family: var(--font-manuscript);
+}
+.newline-mark {
+  fill: var(--muted);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
 }
 </style>

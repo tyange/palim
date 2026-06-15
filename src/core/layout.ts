@@ -99,6 +99,14 @@ function isLineStartProhibited(unit: CellUnit): boolean {
   );
 }
 
+/** 사용자가 친 줄바꿈(\n)이 놓인 격자 위치 — 칸을 점유하지 않아 별도 표식으로 그린다. */
+export interface NewlineMark {
+  row: number;
+  col: number;
+  /** 줄바꿈 문자의 UTF-16 offset */
+  offset: number;
+}
+
 /** 격자 오른쪽 바깥 여백에 적히는 칸 (행두 금칙으로 앞 줄에 딸려 나간 구두점). */
 export interface MarginCell {
   /** 어느 행의 오른쪽 여백인지 */
@@ -123,6 +131,8 @@ export interface GridLayout {
   endCellIndex: number;
   /** ③ 행두 금칙으로 줄 오른쪽 여백에 배치된 칸들 */
   margins: MarginCell[];
+  /** 사용자가 친 줄바꿈(\n)이 놓인 위치들 — 자동 줄넘김과 구분해 표식으로 그린다 */
+  newlines: NewlineMark[];
   /** 격자(여백 포함)를 넘어 배치하지 못한 칸 수 */
   overflow: number;
 }
@@ -153,6 +163,7 @@ export function flowToGrid(
   );
   const offsetToCell = new Map<number, number>();
   const margins: MarginCell[] = [];
+  const newlines: NewlineMark[] = [];
 
   let row = 0;
   let col = 0;
@@ -162,6 +173,8 @@ export function flowToGrid(
 
   for (const unit of units) {
     if (unit.isBreak) {
+      // \n은 칸을 점유하지 않으므로, 줄 끝(마지막 내용 칸 다음 빈 칸) 위치만 기록해 표식으로 그린다.
+      if (row < rows) newlines.push({ row, col, offset: unit.tokens[0].offset });
       row += 1;
       col = 0;
       justWrapped = false;
@@ -209,6 +222,7 @@ export function flowToGrid(
     offsetToCell,
     endCellIndex,
     margins,
+    newlines,
     overflow,
   };
 }
