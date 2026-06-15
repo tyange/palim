@@ -19,9 +19,9 @@ const height = rows * cellSize;
 // 서로 닿지 않게 간격을 둔다. 큐빅 베지어(제어점을 같은 x에)로 belly를 둥글게.
 function softWrapPath(r: number): string {
   const boundary = (r + 1) * cellSize; // 두 행 사이 경계
-  const half = cellSize * 0.45; // 경계 위/아래로 뻗는 길이 (두 행을 감싸되 인접 brace와 약간 간격)
+  const half = cellSize * 0.3; // 경계 위/아래로 뻗는 길이 (두 행을 감싸되 인접 brace와 약간 간격)
   const x0 = width + 4; // 격자 오른쪽 끝 살짝 바깥
-  const xBulge = width + cellSize * 0.75; // 둥근 belly 제어점 (gutter 안)
+  const xBulge = width + cellSize * 0.5; // 둥근 belly 제어점 (gutter 안)
   const yTop = boundary - half;
   const yBot = boundary + half;
   return `M ${x0} ${yTop} C ${xBulge} ${yTop} ${xBulge} ${yBot} ${x0} ${yBot}`;
@@ -300,7 +300,11 @@ function onKeyDown(event: KeyboardEvent) {
   }
 
   // 가상 칸에서 텍스트 입력이 시작되려 함 → 조합 시작 전(여기서) 실체화 (IME 안전)
-  if (!isComposing.value && virtualCell.value !== null && startsTextInput(event)) {
+  if (
+    !isComposing.value &&
+    virtualCell.value !== null &&
+    startsTextInput(event)
+  ) {
     materializeCaret();
   }
 }
@@ -352,7 +356,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex max-w-full flex-col gap-2" :style="{ width: `${totalWidth}px` }">
+  <div
+    class="flex max-w-full flex-col gap-2"
+    :style="{ width: `${totalWidth}px` }"
+  >
     <!-- 격자 박스: SVG가 absolute로 이 박스를 채움 -->
     <div
       class="relative w-full overflow-visible"
