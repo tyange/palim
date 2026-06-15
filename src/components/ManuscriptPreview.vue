@@ -125,7 +125,7 @@ async function exportPng() {
 </script>
 
 <template>
-  <div class="flex max-w-full flex-col gap-2" :style="{ width: `${previewWidth}px` }">
+  <div class="flex min-w-0 max-w-full flex-col gap-2" :style="{ width: `${previewWidth}px` }">
     <div class="flex h-[30px] items-center justify-between gap-2">
       <span class="text-sm text-muted">미리보기</span>
       <div class="flex items-center gap-2">

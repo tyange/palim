@@ -20,7 +20,7 @@ import ThemeToggle from "../components/ThemeToggle.vue";
     <EditorToolbar v-if="false" />
 
     <div class="flex flex-wrap items-start gap-6">
-      <div class="flex flex-col gap-2">
+      <div class="flex min-w-0 max-w-full flex-col gap-2">
         <!-- 미리보기 헤더와 같은 높이의 헤더 → 격자와 미리보기 SVG 상단을 맞춘다 -->
         <div class="flex h-[30px] items-center">
           <span class="text-sm text-muted">에디터</span>
