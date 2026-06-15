@@ -132,11 +132,13 @@ function moveCaretToCellIndex(cellIndex: number) {
   const span = layout.value.cellSpan[cellIndex];
   const el = inputRef.value;
   if (span) {
+    // 캐럿을 칸의 끝(글자 뒤)에 둔다 → 클릭한 칸이 활성 칸이 되고, 백스페이스가
+    // 그 칸을 지우며 왼쪽으로 이어진다(타이핑 직후 상태와 동일하게 일관).
     virtualCell.value = null;
-    caretIndex.value = span[0];
+    caretIndex.value = span[1];
     if (el) {
       el.focus();
-      el.setSelectionRange(span[0], span[0]);
+      el.setSelectionRange(span[1], span[1]);
     }
   } else {
     virtualCell.value = cellIndex;
@@ -240,15 +242,12 @@ const arrowDelta: Record<string, readonly [number, number]> = {
 
 // 현재 캐럿이 놓인 칸.
 // - 가상 모드: 그 빈 칸
-// - 캐럿이 글 끝(마지막 글자 바로 뒤)이면: 방금 친 마지막 글자가 놓인 칸을 기준으로.
-//   글 끝 캐럿은 caretCell상 '다음 칸(endCellIndex)'으로 가는데, 그러면 입력 직후 ↑↓가
-//   글자보다 한 칸 옆(col+1)에서 출발해 어긋난다. IME 확정 시의 캐럿 점프도 이걸로 흡수.
-// - 그 외: 캐럿 offset이 놓인 칸
+// - 그 외: 캐럿 '왼쪽 칸'(바로 앞 글자가 놓인 칸)을 활성 칸으로 본다.
+//   클릭(캐럿=칸 끝)·타이핑 직후·이동을 모두 같은 기준으로 통일 → 활성 칸 하이라이트와
+//   백스페이스 대상이 일치한다. (캐럿이 글 맨 앞이면 첫 칸)
 function currentCell(): number {
   if (virtualCell.value !== null) return virtualCell.value;
-  if (caretIndex.value >= text.value.length && caretIndex.value > 0) {
-    return caretCell(caretIndex.value - 1);
-  }
+  if (caretIndex.value > 0) return caretCell(caretIndex.value - 1);
   return caretCell(caretIndex.value);
 }
 
