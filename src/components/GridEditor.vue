@@ -19,7 +19,7 @@ const height = rows * cellSize;
 // 서로 닿지 않게 간격을 둔다. 큐빅 베지어(제어점을 같은 x에)로 belly를 둥글게.
 function softWrapPath(r: number): string {
   const boundary = (r + 1) * cellSize; // 두 행 사이 경계
-  const half = cellSize * 0.28; // 경계 위/아래로 뻗는 길이 (짧게 → 인접 brace와 간격)
+  const half = cellSize * 0.45; // 경계 위/아래로 뻗는 길이 (두 행을 감싸되 인접 brace와 약간 간격)
   const x0 = width + 4; // 격자 오른쪽 끝 살짝 바깥
   const xBulge = width + cellSize * 0.75; // 둥근 belly 제어점 (gutter 안)
   const yTop = boundary - half;
