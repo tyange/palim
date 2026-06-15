@@ -13,14 +13,18 @@ const width = cols * cellSize; // 격자 폭
 const totalWidth = (cols + gutterCols) * cellSize; // 여백 포함 전체 폭
 const height = rows * cellSize;
 
-// soft-wrap 커넥터: 가득 찬 행 r의 오른쪽 끝과 다음 행 r+1의 오른쪽 끝을 여백에서
-// 곡선으로 이어 "두 줄이 사실 한 줄로 이어짐"을 보인다. (자동 줄넘김 ≠ 진짜 줄바꿈)
+// soft-wrap 커넥터: 가득 찬 행 r와 다음 행 r+1을 여백에서 둥근 곡선으로 이어
+// "두 줄이 사실 한 줄로 이어짐"을 보인다. (자동 줄넘김 ≠ 진짜 줄바꿈)
+// 두 행 사이 경계선 기준으로 짧게(±half) 뻗어, 연쇄 wrap 시 위·아래 brace가
+// 서로 닿지 않게 간격을 둔다. 큐빅 베지어(제어점을 같은 x에)로 belly를 둥글게.
 function softWrapPath(r: number): string {
-  const x0 = width + 4; // 격자 오른쪽 끝 살짝 바깥(마지막 칸 글자와 겹침 방지)
-  const xBulge = width + cellSize * 0.6; // 여백 쪽 정점 (gutter 안)
-  const yTop = r * cellSize + cellSize / 2;
-  const yBot = (r + 1) * cellSize + cellSize / 2;
-  return `M ${x0} ${yTop} Q ${xBulge} ${(yTop + yBot) / 2} ${x0} ${yBot}`;
+  const boundary = (r + 1) * cellSize; // 두 행 사이 경계
+  const half = cellSize * 0.4; // 경계 위/아래로 뻗는 길이 (짧게 → 인접 brace와 간격)
+  const x0 = width + 4; // 격자 오른쪽 끝 살짝 바깥
+  const xBulge = width + cellSize * 0.75; // 둥근 belly 제어점 (gutter 안)
+  const yTop = boundary - half;
+  const yBot = boundary + half;
+  return `M ${x0} ${yTop} C ${xBulge} ${yTop} ${xBulge} ${yBot} ${x0} ${yBot}`;
 }
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
