@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CornerDownLeft, WrapText } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
 import { GRID, useManuscriptStore } from "../stores/manuscript";
@@ -6,10 +7,7 @@ import type { DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 
 const { rows, cols, cellSize, gutterCols } = GRID;
-// 줄바꿈·soft-wrap 표식. ↪는 기본적으로 emoji presentation으로 렌더되어(둥근 색 박스)
-// muted 색이 안 먹으므로 변이 선택자 U+FE0E를 붙여 text presentation으로 강제한다.
-const NEWLINE_MARK = "¶";
-const SOFTWRAP_MARK = "↪︎"; // ↪ + text presentation selector(U+FE0E)
+const MARK_SIZE = 16; // 줄바꿈·soft-wrap 아이콘 크기(px, SVG 단위)
 
 const width = cols * cellSize; // 격자 폭
 const totalWidth = (cols + gutterCols) * cellSize; // 여백 포함 전체 폭
@@ -364,32 +362,29 @@ onUnmounted(() => {
           @cellmouseenter="onCellMouseEnter"
         />
 
-        <!-- 사용자가 친 줄바꿈(\n) 표식 — 칸을 안 차지하는 \n을 보이게 해 자동 줄넘김과 구분 -->
-        <text
+        <!-- 사용자가 친 줄바꿈(\n) 표식 — 칸을 안 차지하는 \n을 보이게 해 자동 줄넘김과 구분.
+             Lucide 아이콘을 칸 중앙에 오도록 중첩 svg로 그린다(좌상단을 중심-반칸만큼 이동). -->
+        <g
           v-for="nl in layout.newlines"
           :key="`nl:${nl.offset}`"
           class="newline-mark"
-          :x="nl.col * cellSize + cellSize / 2"
-          :y="nl.row * cellSize + cellSize / 2"
-          dominant-baseline="central"
-          text-anchor="middle"
-          font-size="16"
+          :transform="`translate(${nl.col * cellSize + (cellSize - MARK_SIZE) / 2}, ${nl.row * cellSize + (cellSize - MARK_SIZE) / 2})`"
           aria-hidden="true"
-        >{{ NEWLINE_MARK }}</text>
+        >
+          <CornerDownLeft :size="MARK_SIZE" />
+        </g>
 
-        <!-- 자동 줄넘김(soft-wrap) 표식 — 오른쪽 여백에 ↳로 표시해 진짜 줄바꿈(↵)과 구분.
+        <!-- 자동 줄넘김(soft-wrap) 표식 — 오른쪽 여백에 표시해 진짜 줄바꿈과 구분.
              칸을 넘쳐 다음 행으로 이어졌을 뿐 출력에선 한 줄임을 알린다. -->
-        <text
+        <g
           v-for="r in layout.softWraps"
           :key="`sw:${r}`"
           class="softwrap-mark"
-          :x="width + cellSize / 2"
-          :y="r * cellSize + cellSize / 2"
-          dominant-baseline="central"
-          text-anchor="middle"
-          font-size="14"
+          :transform="`translate(${width + (cellSize - MARK_SIZE) / 2}, ${r * cellSize + (cellSize - MARK_SIZE) / 2})`"
           aria-hidden="true"
-        >{{ SOFTWRAP_MARK }}</text>
+        >
+          <WrapText :size="MARK_SIZE" />
+        </g>
 
         <!-- ③ 행두 금칙으로 앞 줄 오른쪽 여백에 적힌 구두점 -->
         <text
@@ -456,16 +451,15 @@ onUnmounted(() => {
   fill: var(--muted);
   font-family: var(--font-manuscript);
 }
+/* Lucide 아이콘은 stroke="currentColor" 기반 → color로 색을 준다 */
 .newline-mark {
-  fill: var(--muted);
-  opacity: 0.5;
+  color: var(--muted);
+  opacity: 0.55;
   pointer-events: none;
-  user-select: none;
 }
 .softwrap-mark {
-  fill: var(--muted);
-  opacity: 0.35;
+  color: var(--muted);
+  opacity: 0.4;
   pointer-events: none;
-  user-select: none;
 }
 </style>
