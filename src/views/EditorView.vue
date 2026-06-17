@@ -18,11 +18,15 @@ const activePane = ref<"editor" | "preview">("editor");
     class="min-h-screen bg-background p-5 text-foreground max-[700px]:p-3"
   >
     <!--
-      콘텐츠를 패널 2개 폭(에디터 544 + 미리보기 544 + gap-6 24 = 1112px)에 맞춰
-      중앙 정렬. 헤더도 같은 컨테이너 안에 둬 에디터/미리보기 가장자리와 정렬된다.
-      넓은 화면에서 전폭으로 퍼지지 않고, 좁은 화면에선 자연히 100%로 줄어든다.
+      콘텐츠를 컨테이너로 묶어 중앙 정렬하고, 헤더도 같은 컨테이너에 둬 가장자리를 맞춘다.
+      - 넓은 화면: 패널 2개 폭(에디터 544 + 미리보기 544 + gap-6 24 = 1112px)
+      - 컴팩트: 패널 하나만 보이므로 단일 패널 폭(544px)으로 좁혀 헤더가 콘텐츠보다
+        넓게 퍼지지 않게 한다. 더 좁은 화면에선 자연히 100%로 줄어든다.
     -->
-    <div class="mx-auto flex w-full max-w-[1112px] flex-col gap-3">
+    <div
+      class="mx-auto flex w-full flex-col gap-3"
+      :class="isCompact ? 'max-w-[544px]' : 'max-w-[1112px]'"
+    >
       <header class="flex items-center justify-between gap-4">
         <div>
           <h1 class="m-0 text-2xl leading-tight font-medium">Palim</h1>
