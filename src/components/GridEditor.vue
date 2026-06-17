@@ -38,6 +38,10 @@ const caretIndex = ref(0);
 // 빈 칸에 캐럿이 놓이면 그 칸 인덱스를 담는다(가상 캐럿). null이면 텍스트 모드(캐럿=caretIndex).
 // 가상 모드에선 공백을 만들지 않고 화면 캐럿만 그 칸에 그린다. 실제 입력 직전(materializeCaret)에만 실체화.
 const virtualCell = ref<number | null>(null);
+// 행두(col 0) 글자를 클릭해 캐럿을 그 칸 '앞'에 둔 상태. 그 칸이 활성 칸으로 남도록
+// 기록한다(평소엔 캐럿 '왼쪽 칸'이 활성이라, 칸 앞에 캐럿을 두면 이전 칸이 잡히는 걸 보정).
+// 어떤 식으로든 캐럿이 다시 움직이면(입력·동기화·다른 칸 이동) 해제한다.
+const caretBeforeCell = ref<number | null>(null);
 const isComposing = ref(false);
 const composingText = ref("");
 
@@ -47,6 +51,7 @@ function syncFromInput() {
   clearSelection();
   // 실제 입력이 들어온 시점 = 텍스트 모드 확정 (백스톱: beforeinput에서 못 비웠어도 정리)
   virtualCell.value = null;
+  caretBeforeCell.value = null;
   text.value = el.value;
   caretIndex.value = el.selectionStart ?? el.value.length;
 }
@@ -55,6 +60,7 @@ function syncCaret() {
   const el = inputRef.value;
   if (!el) return;
   clearSelection();
+  caretBeforeCell.value = null;
   caretIndex.value = el.selectionStart ?? el.value.length;
 }
 
@@ -93,10 +99,15 @@ function caretCell(offset: number): number {
 }
 
 // 가상 칸을 실제 텍스트 위치로 실체화한다. target 칸이 입력 위치가 되도록, 직전의
-// '내용 있는 칸' 뒤에 사이 빈 칸 수만큼 공백을 끼워넣는다(글 끝 뒤·중간 갭 모두 처리).
-// 공백은 행두 금칙 대상이 아니라 항상 한 칸씩 점유하므로 칸 수만큼의 공백이 그 칸들을
-// 정확히 메운다. 입력 직전(@beforeinput·compositionstart)에만 호출 — 탐색만 하다 떠나면
-// 텍스트에 흔적이 남지 않는다(이게 사전 공백 채우기와의 차이).
+// '내용 있는 칸' 뒤에 빈틈을 채워 끼워넣는다. 입력 직전(@beforeinput·compositionstart)에만
+// 호출 — 탐색만 하다 떠나면 텍스트에 흔적이 남지 않는다(이게 사전 공백 채우기와의 차이).
+//
+// 채움 방식은 target이 '입력 중인 현재 라인'보다 아래인지에 따라 나뉜다:
+//   - 같은 라인(또는 가득 찬 행의 자동 줄넘김 직후 같은 줄): 사이 빈 칸 수만큼 공백.
+//   - 아래 라인(행 index가 1 이상 큼): 행 차이만큼 줄바꿈(\n)으로 내려가고, 그 행 안에서
+//     target 열까지만 공백으로 채운다. (예전엔 전부 공백이라 한참 아래 칸을 클릭해도
+//     줄바꿈 없는 거대한 공백 런이 되어 미리보기에서 한 단락으로 합쳐졌다.)
+// 공백·줄바꿈 모두 행두 금칙 대상이 아니라 의도한 칸을 정확히 메운다.
 function materializeCaret() {
   if (virtualCell.value === null) return;
   const target = virtualCell.value;
@@ -111,7 +122,16 @@ function materializeCaret() {
       break;
     }
   }
-  const pad = " ".repeat(target - prevCell - 1); // 직전 내용 칸과 target 사이 빈 칸 수
+
+  // 입력 중인 '현재 라인' = 직전 내용 칸 '다음 칸'이 놓이는 행 (가득 찬 행의 자동
+  // 줄넘김까지 반영해 off-by-one을 피한다). 내용이 없으면 첫 행(0).
+  const caretRow = Math.floor((prevCell + 1) / cols);
+  const targetRow = Math.floor(target / cols);
+
+  const pad =
+    targetRow > caretRow
+      ? "\n".repeat(targetRow - caretRow) + " ".repeat(target % cols)
+      : " ".repeat(target - prevCell - 1); // 같은 라인: 사이 빈 칸 수만큼 공백
   const next = text.value.slice(0, insertAt) + pad + text.value.slice(insertAt);
   const offset = insertAt + pad.length; // target 칸이 시작될 offset
   text.value = next;
@@ -131,14 +151,22 @@ function materializeCaret() {
 function moveCaretToCellIndex(cellIndex: number) {
   const span = layout.value.cellSpan[cellIndex];
   const el = inputRef.value;
+  virtualCell.value = null;
+  caretBeforeCell.value = null;
   if (span) {
-    // 캐럿을 칸의 끝(글자 뒤)에 둔다 → 클릭한 칸이 활성 칸이 되고, 백스페이스가
-    // 그 칸을 지우며 왼쪽으로 이어진다(타이핑 직후 상태와 동일하게 일관).
-    virtualCell.value = null;
-    caretIndex.value = span[1];
+    // 행두(col 0) 글자는 캐럿을 칸 '앞'(span[0])에 둔다 → 그 앞에 삽입(공백 등 prepend)
+    // 가능. 행두는 왼쪽 칸이 이전 줄에 있어 평소처럼 앞 칸을 클릭해 위치할 수 없으므로
+    // 별도 분기가 필요하다(일반 에디터에서 줄 맨 앞 클릭과 동일). caretBeforeCell로 그 칸을
+    // 활성 칸으로 유지한다.
+    // 그 외 칸은 캐럿을 칸의 끝(글자 뒤, span[1])에 둔다 → 클릭한 칸이 활성 칸이 되고,
+    // 백스페이스가 그 칸을 지우며 왼쪽으로 이어진다(타이핑 직후 상태와 동일하게 일관).
+    const atLineHead = cellIndex % cols === 0;
+    const pos = atLineHead ? span[0] : span[1];
+    if (atLineHead) caretBeforeCell.value = cellIndex;
+    caretIndex.value = pos;
     if (el) {
       el.focus();
-      el.setSelectionRange(span[1], span[1]);
+      el.setSelectionRange(pos, pos);
     }
   } else {
     virtualCell.value = cellIndex;
@@ -247,6 +275,8 @@ const arrowDelta: Record<string, readonly [number, number]> = {
 //   백스페이스 대상이 일치한다. (캐럿이 글 맨 앞이면 첫 칸)
 function currentCell(): number {
   if (virtualCell.value !== null) return virtualCell.value;
+  // 행두 글자 앞에 캐럿을 둔 경우: 캐럿 오른쪽(그 칸)을 활성으로 본다(왼쪽 칸=이전 줄 보정).
+  if (caretBeforeCell.value !== null) return caretBeforeCell.value;
   if (caretIndex.value > 0) return caretCell(caretIndex.value - 1);
   return caretCell(caretIndex.value);
 }
