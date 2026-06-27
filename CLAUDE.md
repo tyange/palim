@@ -91,6 +91,7 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - `docs/manuscript-paper-editing.md` — 칸 점유(§1)·구조적 빈칸(§2)·행두/행말 금칙(§3)·커서 모델(§4)
 - `docs/korean-ime-bug.md` — 한국어 IME 조합 중 자모 탈락 버그 분석
 - `docs/TODO-daisyui.md` — daisyUI 도입 보류 결정
+- `docs/TODO-e2e-testing.md` — e2e 보류 결정 + 한글 IME 재현 가능 러너 조사(Playwright+CDP)
 
 ## 도메인 규칙 (원고지)
 
