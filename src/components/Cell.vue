@@ -32,7 +32,6 @@ const emit = defineEmits<{
       stroke-width="1"
       vector-effect="non-scaling-stroke"
     />
-    <!-- 드래그로 선택된 셀: 반투명 하이라이트 -->
     <rect
       v-if="cell.selected"
       class="cell-selected"
@@ -41,7 +40,6 @@ const emit = defineEmits<{
       :width="cellSize"
       :height="cellSize"
     />
-    <!-- 활성 셀(조합 중 글자 또는 캐럿 위치): 깜박이는 border + bg -->
     <rect
       v-if="cell.active"
       class="active-cell cell-caret"
@@ -127,8 +125,6 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-/* 색은 전역 디자인 토큰(CSS 변수)으로 — 다크/라이트에 자동 반응.
-   SVG 속성값으로는 var()가 안 먹혀 CSS 속성으로 칠한다. */
 .cell-rect {
   fill: var(--cell-bg);
   stroke: var(--grid-line);

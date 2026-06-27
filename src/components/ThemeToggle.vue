@@ -2,8 +2,6 @@
 import { useColorMode, usePreferredDark } from "@vueuse/core";
 import { computed } from "vue";
 
-// useColorMode: 'auto' | 'light' | 'dark' 를 localStorage에 저장하고
-// <html>에 클래스를 자동 토글. 기본은 'auto'(시스템 설정 따름).
 const mode = useColorMode();
 const prefersDark = usePreferredDark();
 

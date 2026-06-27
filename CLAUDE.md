@@ -4,6 +4,11 @@
 SVG/PNG로 내보내는 웹 앱. 한국어 원고지 칸 점유·금칙 규칙을 그대로 구현하는 것이
 이 프로젝트의 핵심 도메인이다.
 
+> **IMPORTANT: 코드엔 주석이 없다. 모든 "왜"는 `docs/`에 있다.**
+> 작업 시작 전, 그리고 관련 코드를 건드리기 전에 **항상** [참고 문서](#참고-문서-docs)의
+> 해당 문서를 먼저 읽는다. 새 동작·결정도 인라인 주석이 아니라 해당 docs 문서를 갱신해
+> 반영한다. 문서와 코드가 어긋나면 문서를 최신으로 맞춘다.
+
 ## 스택 & 명령어
 
 - **런타임/패키지 매니저: Bun** (npm/yarn/pnpm 아님). 항상 `bun`을 쓴다.
@@ -74,11 +79,17 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - **PNG 저장**: SVG→img 경로는 웹폰트가 안 먹으므로, 문서 컨텍스트 canvas에 `fillText`로 직접
   그려 폰트를 픽셀에 굽는다(3배 스케일).
 
-## 도메인 규칙 (원고지)
+## 참고 문서 (docs/)
 
-도메인 로직 수정 전 **반드시 참고**:
+코드엔 주석을 두지 않으므로 "왜"는 모두 여기 있다. 관련 코드 수정 전 **반드시 참고**:
+- `docs/architecture.md` — 레이아웃 파이프라인·offset 모델·코어 엔진(tokenizer/layout) 구현
+- `docs/editor-input-model.md` — GridEditor의 캐럿·IME·가상 칸·선택 모델
+- `docs/rendering-and-export.md` — SVG 그리드 렌더링·스타일 토큰·SVG/PNG 내보내기
 - `docs/manuscript-paper-editing.md` — 칸 점유(§1)·구조적 빈칸(§2)·행두/행말 금칙(§3)·커서 모델(§4)
 - `docs/korean-ime-bug.md` — 한국어 IME 조합 중 자모 탈락 버그 분석
+- `docs/TODO-daisyui.md` — daisyUI 도입 보류 결정
+
+## 도메인 규칙 (원고지)
 
 요약:
 - 한글·한자 = 1칸 / 숫자·소문자 = 한 칸에 2개 / 대문자 = 1개
@@ -93,7 +104,8 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
   (`bg-background` `text-foreground` `text-muted` `bg-surface` `border-border` `accent` …)만 쓴다.
   SVG 속성값엔 `var()`가 안 먹히므로 CSS 클래스(`.cell-rect { fill: var(--cell-bg) }`)로 칠한다.
 - **다크 모드**: `@custom-variant dark` + `<html>.dark`(`useColorMode` 토글). `dark:` 변형 사용.
-- 코드 주석은 **한국어**로, "왜"를 설명하는 밀도로(기존 파일 스타일 따름).
+- **코드 주석은 두지 않는다.** "왜"에 해당하는 지식은 코드가 아니라 `docs/`에 주제별 문서로
+  둔다(아래 "참고 문서"). 새 동작·결정도 인라인 주석 대신 해당 문서를 갱신한다.
 - 문자열 **쌍따옴표**, `printWidth: 80`(oxfmt). 커밋은 한국어 + Conventional Commits(`feat:`/`fix:`/`style:`/`ci:`…).
 - daisyUI는 테마 충돌 우려로 **보류**. 검토 시 `docs/TODO-daisyui.md` 참고.
 
