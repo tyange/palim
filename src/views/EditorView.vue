@@ -22,7 +22,9 @@ const activePane = ref<"editor" | "preview">("editor");
       <header class="flex items-center justify-between gap-4">
         <div>
           <h1 class="m-0 text-2xl leading-tight font-medium">Palim</h1>
-          <p class="mt-1 mb-0 text-sm text-muted">그리드 텍스트 에디터</p>
+          <p class="mt-1 mb-0 text-sm text-muted">
+            시 쓰기를 위한 텍스트 에디터
+          </p>
         </div>
         <ThemeToggle />
       </header>
