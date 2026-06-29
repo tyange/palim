@@ -1,21 +1,30 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { flowToGrid, packCells } from "../core/layout";
-import { tokenize } from "../core/tokenizer";
+import { flowGraphemes } from "../core/layout";
 
 export const GRID = {
-  rows: 12,
-  cols: 16,
   cellSize: 32,
-  gutterCols: 1,
+  minCols: 20,
+  minRows: 12,
 } as const;
+
+export const FLOW = {
+  width: 500,
+  fontSize: 18,
+  lineHeight: 30,
+  padX: 16,
+  padY: 16,
+} as const;
+
+export type WritingMode = "grid" | "flow";
 
 export const useManuscriptStore = defineStore("manuscript", () => {
   const text = ref("");
+  const mode = ref<WritingMode>("grid");
 
-  const layout = computed(() =>
-    flowToGrid(packCells(tokenize(text.value)), GRID.rows, GRID.cols),
+  const gridLayout = computed(() =>
+    flowGraphemes(text.value, GRID.minCols, GRID.minRows),
   );
 
-  return { text, layout };
+  return { text, mode, gridLayout };
 });

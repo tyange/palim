@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { useMediaQuery } from "@vueuse/core";
+import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import EditorToolbar from "../components/EditorToolbar.vue";
+import FlowEditor from "../components/FlowEditor.vue";
+import FlowPreview from "../components/FlowPreview.vue";
 import GridEditor from "../components/GridEditor.vue";
-import ManuscriptPreview from "../components/ManuscriptPreview.vue";
+import GridPreview from "../components/GridPreview.vue";
+import ModeToggle from "../components/ModeToggle.vue";
 import PaneToggle from "../components/PaneToggle.vue";
 import ThemeToggle from "../components/ThemeToggle.vue";
+import { useManuscriptStore } from "../stores/manuscript";
+
+const { mode } = storeToRefs(useManuscriptStore());
 
 const isCompact = useMediaQuery("(max-width: 1151px)");
 const activePane = ref<"editor" | "preview">("editor");
@@ -30,24 +36,39 @@ const activePane = ref<"editor" | "preview">("editor");
       </header>
 
       <div class="flex flex-col gap-3">
-        <EditorToolbar v-if="false" />
+        <ModeToggle />
 
         <PaneToggle v-if="isCompact" v-model="activePane" class="py-1" />
 
         <div
           class="flex gap-6"
-          :class="isCompact ? 'flex-col items-center' : 'items-start'"
+          :class="
+            isCompact
+              ? 'flex-col items-center'
+              : mode === 'grid'
+                ? 'flex-col items-start'
+                : 'items-start'
+          "
         >
           <div
             v-show="!isCompact || activePane === 'editor'"
-            class="flex min-w-0 max-w-full flex-col gap-2"
+            class="flex min-w-0 flex-col gap-2"
+            :class="mode === 'grid' ? 'w-full' : 'max-w-full'"
           >
             <div class="flex h-[30px] items-center">
               <span class="text-sm text-muted">에디터</span>
             </div>
-            <GridEditor />
+            <GridEditor v-if="mode === 'grid'" />
+            <FlowEditor v-else />
           </div>
-          <ManuscriptPreview v-show="!isCompact || activePane === 'preview'" />
+
+          <div
+            v-show="!isCompact || activePane === 'preview'"
+            :class="mode === 'grid' ? 'w-full' : ''"
+          >
+            <GridPreview v-if="mode === 'grid'" />
+            <FlowPreview v-else />
+          </div>
         </div>
       </div>
     </div>

@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { ref, useTemplateRef, watch } from "vue";
-import { GRID, useManuscriptStore } from "../stores/manuscript";
+import { computed, ref, useTemplateRef, watch } from "vue";
+import { exportPng, exportSvgElement } from "../composables/useExport";
+import { FLOW, useManuscriptStore } from "../stores/manuscript";
 
-const { rows, cols, cellSize, gutterCols } = GRID;
-
-const previewWidth = (cols + gutterCols) * cellSize;
-const previewHeight = rows * cellSize;
-const fontSize = 18;
-const lineHeight = 28;
-const padX = 6;
-const padY = 6;
+const { width, fontSize, lineHeight, padX, padY } = FLOW;
 const fontFamily = '"Noto Serif KR", serif';
 
 const { text } = storeToRefs(useManuscriptStore());
@@ -27,7 +21,7 @@ function measure(s: string): number {
 const lines = ref<string[]>([]);
 
 function relayout() {
-  const maxWidth = previewWidth - padX * 2;
+  const maxWidth = width - padX * 2;
   const out: string[] = [];
   for (const para of text.value.split("\n")) {
     let cur = "";
@@ -53,76 +47,50 @@ if (document.fonts) {
   });
 }
 
+const height = computed(
+  () => padY * 2 + Math.max(1, lines.value.length) * lineHeight,
+);
+
 const svgRef = useTemplateRef<SVGSVGElement>("svgEl");
 
-function exportSvg() {
-  const svg = svgRef.value;
-  if (!svg) return;
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  const source = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob(
-    [`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${source}`],
-    { type: "image/svg+xml;charset=utf-8" },
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "manuscript.svg";
-  a.click();
-  URL.revokeObjectURL(url);
+function onExportSvg() {
+  if (svgRef.value) exportSvgElement(svgRef.value, "palim-flow.svg");
 }
 
-const PNG_SCALE = 3;
-
-async function exportPng() {
-  if (document.fonts) await document.fonts.load(`${fontSize}px "Noto Serif KR"`);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = previewWidth * PNG_SCALE;
-  canvas.height = previewHeight * PNG_SCALE;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  ctx.scale(PNG_SCALE, PNG_SCALE);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, previewWidth, previewHeight);
-
-  ctx.fillStyle = "#000000";
-  ctx.font = `${fontSize}px ${fontFamily}`;
-  ctx.textBaseline = "top";
-  lines.value.forEach((line, i) => {
-    ctx.fillText(line, padX, padY + i * lineHeight);
+function onExportPng() {
+  exportPng({
+    width,
+    height: height.value,
+    filename: "palim-flow.png",
+    awaitFont: `${fontSize}px "Noto Serif KR"`,
+    draw: (ctx) => {
+      ctx.fillStyle = "#000000";
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      ctx.textBaseline = "top";
+      lines.value.forEach((line, i) => {
+        ctx.fillText(line, padX, padY + i * lineHeight);
+      });
+    },
   });
-
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "manuscript.png";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, "image/png");
 }
 </script>
 
 <template>
-  <div class="flex min-w-0 max-w-full flex-col gap-2" :style="{ width: `${previewWidth}px` }">
+  <div class="flex min-w-0 max-w-full flex-col gap-2" :style="{ width: `${width}px` }">
     <div class="flex h-[30px] items-center justify-between gap-2">
       <span class="text-sm text-muted">미리보기</span>
       <div class="flex items-center gap-2">
         <button
           type="button"
           class="h-[30px] cursor-pointer rounded-md border border-border bg-surface px-2.5 text-[13px] text-foreground transition-opacity hover:opacity-90"
-          @click="exportPng"
+          @click="onExportPng"
         >
           PNG 저장
         </button>
         <button
           type="button"
           class="h-[30px] cursor-pointer rounded-md border border-accent bg-accent px-2.5 text-[13px] text-accent-contrast transition-opacity hover:opacity-90"
-          @click="exportSvg"
+          @click="onExportSvg"
         >
           SVG 저장
         </button>
@@ -132,14 +100,14 @@ async function exportPng() {
     <svg
       ref="svgEl"
       class="block h-auto w-full rounded-md border border-border"
-      :viewBox="`0 0 ${previewWidth} ${previewHeight}`"
-      :width="previewWidth"
-      :height="previewHeight"
+      :viewBox="`0 0 ${width} ${height}`"
+      :width="width"
+      :height="height"
       role="img"
-      aria-label="원고지 미리보기"
+      aria-label="흐름 미리보기"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect x="0" y="0" :width="previewWidth" :height="previewHeight" fill="#ffffff" />
+      <rect x="0" y="0" :width="width" :height="height" fill="#ffffff" />
 
       <text
         v-for="(line, i) in lines"
