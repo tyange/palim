@@ -50,66 +50,6 @@ const emit = defineEmits<{
       stroke-width="2"
       vector-effect="non-scaling-stroke"
     />
-    <line
-      v-if="cell.guides.borderLeft"
-      class="cell-guide"
-      :x1="cell.col * cellSize"
-      :y1="cell.row * cellSize"
-      :x2="cell.col * cellSize"
-      :y2="(cell.row + 1) * cellSize"
-      stroke-width="2"
-      vector-effect="non-scaling-stroke"
-    />
-    <line
-      v-if="cell.guides.borderRight"
-      class="cell-guide"
-      :x1="(cell.col + 1) * cellSize"
-      :y1="cell.row * cellSize"
-      :x2="(cell.col + 1) * cellSize"
-      :y2="(cell.row + 1) * cellSize"
-      stroke-width="2"
-      vector-effect="non-scaling-stroke"
-    />
-    <line
-      v-if="cell.guides.centerVertical"
-      class="cell-guide"
-      :x1="cell.col * cellSize + cellSize / 2"
-      :y1="cell.row * cellSize"
-      :x2="cell.col * cellSize + cellSize / 2"
-      :y2="(cell.row + 1) * cellSize"
-      stroke-width="1"
-      vector-effect="non-scaling-stroke"
-    />
-    <line
-      v-if="cell.guides.centerHorizontal"
-      class="cell-guide"
-      :x1="cell.col * cellSize"
-      :y1="cell.row * cellSize + cellSize / 2"
-      :x2="(cell.col + 1) * cellSize"
-      :y2="cell.row * cellSize + cellSize / 2"
-      stroke-width="1"
-      vector-effect="non-scaling-stroke"
-    />
-    <line
-      v-if="cell.guides.diagonalForward"
-      class="cell-guide"
-      :x1="cell.col * cellSize"
-      :y1="(cell.row + 1) * cellSize"
-      :x2="(cell.col + 1) * cellSize"
-      :y2="cell.row * cellSize"
-      stroke-width="1"
-      vector-effect="non-scaling-stroke"
-    />
-    <line
-      v-if="cell.guides.diagonalBackward"
-      class="cell-guide"
-      :x1="cell.col * cellSize"
-      :y1="cell.row * cellSize"
-      :x2="(cell.col + 1) * cellSize"
-      :y2="(cell.row + 1) * cellSize"
-      stroke-width="1"
-      vector-effect="non-scaling-stroke"
-    />
     <text
       v-if="cell.value"
       class="cell-text"
@@ -128,6 +68,7 @@ const emit = defineEmits<{
 .cell-rect {
   fill: var(--cell-bg);
   stroke: var(--grid-line);
+  stroke-opacity: 0.5;
 }
 .cell-selected {
   fill: var(--accent);
@@ -137,9 +78,6 @@ const emit = defineEmits<{
   fill: var(--accent);
   fill-opacity: 0.12;
   stroke: var(--accent);
-}
-.cell-guide {
-  stroke: var(--grid-guide);
 }
 .cell-text {
   fill: var(--foreground);
