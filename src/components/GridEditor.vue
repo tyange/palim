@@ -15,6 +15,24 @@ const width = computed(() => cols.value * cellSize);
 const height = computed(() => rows.value * cellSize);
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
+const glowRef = useTemplateRef<HTMLDivElement>("glowEl");
+
+let glowRaf = 0;
+
+function onGlowMove(event: MouseEvent) {
+  if (glowRaf) return;
+  const el = glowRef.value;
+  if (!el) return;
+  const { clientX, clientY } = event;
+  glowRaf = requestAnimationFrame(() => {
+    glowRaf = 0;
+    const rect = el.getBoundingClientRect();
+    const mx = clientX - rect.left - rect.width / 2;
+    const my = clientY - rect.top - rect.height / 2;
+    const angle = (Math.atan2(my, mx) * (180 / Math.PI) + 360) % 360;
+    el.style.setProperty("--start", String(angle + 60));
+  });
+}
 
 const caretIndex = ref(0);
 const virtualCell = ref<number | null>(null);
@@ -299,12 +317,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("mouseup", endDrag);
+  if (glowRaf) cancelAnimationFrame(glowRaf);
 });
 </script>
 
 <template>
   <div class="flex w-full flex-col gap-2">
-    <div class="relative w-full">
+    <div ref="glowEl" class="grid-glow relative w-full" @mousemove="onGlowMove">
       <svg
         class="block h-auto w-full"
         :width="width"
@@ -359,5 +378,56 @@ onUnmounted(() => {
 <style scoped>
 .grid-frame {
   stroke: var(--border);
+}
+
+.grid-glow {
+  --start: 0;
+}
+
+.grid-glow::before,
+.grid-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background: conic-gradient(
+    from calc((var(--start) - 30) * 1deg),
+    transparent 0deg,
+    var(--grid-glow-stops),
+    transparent 96deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+.grid-glow::after {
+  padding: 3px;
+  filter: blur(11px);
+}
+
+.grid-glow:hover::before,
+.grid-glow:focus-within::before {
+  opacity: 1;
+}
+
+.grid-glow:hover::after,
+.grid-glow:focus-within::after {
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-glow::before,
+  .grid-glow::after {
+    transition: none;
+  }
 }
 </style>

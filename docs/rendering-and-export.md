@@ -39,6 +39,30 @@ CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg); stroke: var(
 `mousedown`·`mouseenter`를 emit해 부모(`GridEditor`)의 드래그 선택에 연결한다. (원고지의
 여백 구두점·줄넘김 표식·soft-wrap 커넥터는 없다 — 묶기·금칙·자동 줄넘김을 안 하므로.)
 
+### 커서 추적 글로우 (편집 화면 전용)
+
+SVG를 감싸는 `div.grid-glow`에 무지개 `conic-gradient` 테두리 글로우를 얹는다. 격자에
+hover하거나 숨은 textarea가 포커스를 가진 동안(`:hover, :focus-within`)만 나타나고
+(`opacity` 전이), 커서가 격자 밖으로 나가면 사라진다.
+
+- **왜 프레임 하나에만** — CodePen 원본은 카드 단위 효과다. 칸(SVG `<rect>`)엔
+  `::before`·`mask-composite`·`filter: blur`·gradient 안 `var()`가 안 먹고, 240+칸마다
+  blur 광원을 그리면 마우스 이동마다 수백 레이어가 리페인트돼 버벅인다. 그래서 격자
+  외곽 프레임 하나만 장식한다("에디터에 머무는 동안 커서를 따라 도는 빛").
+- **구현** — `::before`(2px 얇은 호)와 `::after`(3px + `blur(11px)` 번짐) 두 겹.
+  둘 다 `background`는 `conic-gradient(from calc((var(--start) - 30) * 1deg), …)`,
+  `mask` + `mask-composite: exclude`(표준 gradient-border 트릭)로 padding 두께의
+  링만 남긴다. `--start`는 `GridEditor`의 `mousemove` 핸들러가 커서와 프레임 중심의
+  각도(`atan2`)로 매 프레임 갱신한다(`requestAnimationFrame` 스로틀).
+- **색은 토큰** — 무지개 색 스톱은 `src/style.css`의 `--grid-glow-stops`. 컴포넌트엔
+  색을 안 박는다(토큰 규칙 유지).
+- **블렌드 모드는 `style.css`에** — 라이트에서 무지개가 흰 배경에 씻겨나가 `mix-blend-mode:
+  multiply`로 색을 살린다. 다크는 그대로(`normal`)가 선명하다. 이 전역 규칙을 스코프드
+  스타일에 두면 스코프 속성이 명시도를 올려 `.dark` override가 안 먹으므로 `style.css`에
+  둔다. **`screen`/`plus-lighter`(가산 블렌드)는 다크에서 mask+blur와 겹쳐 Chrome
+  합성이 깨져 화면이 백지가 되는 걸 확인 — 쓰지 말 것.**
+- **출력·내보내기와 무관** — `GridPreview`/export SVG엔 없다(편집 화면 전용 장식).
+
 ### 출력 (`GridPreview.vue`)
 
 `gridLayout.cellText`를 **격자선 없이** 칸마다 글자를 그린 흰 배경 SVG. 빈 칸·공백 칸은

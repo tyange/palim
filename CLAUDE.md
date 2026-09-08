@@ -64,7 +64,7 @@ text(string) + mode            stores/manuscript.ts
 | `core/tokenizer.ts` | `segmentGraphemes`: `Intl.Segmenter`로 자소 분할 + offset + 줄바꿈 판정만 |
 | `core/layout.ts` | `flowGraphemes`: 자소 1=1칸 평면 격자 배치 + 자동 cols/rows. 격자 무관 순수 로직 |
 | `stores/manuscript.ts` | 진실원천(`text` ref + `mode` ref + `gridLayout` computed) + `GRID`·`FLOW` 상수 |
-| `components/GridEditor.vue` | **격자 모드 편집.** 입력·캐럿·IME·드래그 선택. 숨은 textarea로 입력 수집, SVG 격자 렌더 |
+| `components/GridEditor.vue` | **격자 모드 편집.** 입력·캐럿·IME·드래그 선택. 숨은 textarea로 입력 수집, SVG 격자 렌더. 프레임에 커서 추적 `conic-gradient` 글로우(`.grid-glow`, hover/focus 시, 편집 화면 전용) |
 | `components/GridPreview.vue` | 격자 모드 출력. `gridLayout`을 격자선 없이 칸 중앙에 그린 깔끔한 SVG + export |
 | `components/FlowEditor.vue` | 흐름 모드 편집. 스타일된 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
