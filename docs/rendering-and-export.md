@@ -42,33 +42,30 @@ CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-ca
 
 ### 셀 글로우 — hover한 칸 (편집 화면 전용)
 
-CodePen "CSS Gradient Border Glowing Animation Hover Effect"를 **hover 중인 칸 하나**에
-적용한다. 마우스가 올라온 칸에 무지개 `conic-gradient` 테두리 + 번짐 광원이 뜨고, 커서를
-움직이면 색상 위상(`--start`)이 돈다. 격자를 벗어나면 사라진다.
+FreeFrontend "Squircle with a Border on Hover"를 **hover 중인 칸 하나**에 적용한다.
+마우스가 올라온 칸에 노란 임보싱(inset box-shadow) 스퀴클이 통통 튀며(overshoot 이징)
+scale 1→1.1 + opacity 0→1로 뜬다. 격자를 벗어나면 같은 이징으로 사라진다.
 
-- **왜 칸마다가 아니라 오버레이 1개** — 효과는 CSS 의사요소 + `mask-composite` +
-  `filter: blur` 조합이라 SVG `<rect>`엔 안 먹는다(`var()`도 SVG 속성엔 안 먹음).
-  240+칸에 각각 얹으면 mask 링 레이어가 그만큼 생겨 테마 전환·리사이즈 때 페인트가
-  튄다. 그래서 **SVG 위에 HTML `div.cell-glow` 딱 하나**를 두고, hover된 칸 위치로
-  옮긴다.
+- **왜 칸마다가 아니라 오버레이 1개** — 이 효과 자체는 순수 CSS라 칸마다 넣어도 되지만,
+  240+칸에 상시 얹으면 DOM·페인트 비용이 크다. hover는 항상 한 칸뿐이므로 **SVG 위에
+  HTML `div.cell-glow` 딱 하나**를 두고 hover된 칸 위치로 옮긴다. 오버레이는 항상 DOM에
+  있고(`v-show` 아님) opacity/scale로만 토글해야 등장/퇴장 전이가 실제로 재생된다.
 - **위치** — 래퍼(`div.relative.w-full`)는 SVG 렌더 박스와 정확히 같으므로 오버레이를
   **퍼센트**로 배치한다: `left = (col / cols) * 100%`, `width = 100 / cols %`(행도 동일).
-  스케일 계산 없이 어떤 축소율에서도 칸에 딱 맞는다. 칸 간 이동은 `left/top` 0.12s
-  전이로 미끄러진다. `hoveredCell`(칸 인덱스)은 `Cell`의 `cellmouseenter` emit로,
-  해제는 래퍼 `@mouseleave`로.
-- **테두리 링** — `::before`(2px)와 `::after`(3px + `blur(9px)` 번짐) 두 겹. `background`는
-  `conic-gradient(from calc(var(--start) * 1deg), var(--cell-glow-stops))` 풀 무지개
-  링(칸 크기에선 호를 좁히면 잘 안 보여 한 바퀴 다 칠한다). `mask` +
-  `mask-composite: exclude`(표준 gradient-border 트릭)로 padding 두께의 링만 남긴다.
-  `--start`는 `GridEditor`의 `mousemove` 핸들러가 커서와 오버레이 중심의 각도(`atan2`)로
-  `requestAnimationFrame` 스로틀해 갱신한다.
-- **색은 토큰** — 무지개 색 스톱은 `src/style.css`의 `--cell-glow-stops`(첫 색 = 끝 색으로
-  이음매 없이 순환). 컴포넌트엔 색을 안 박는다(토큰 규칙 유지).
-- **블렌드 모드는 `style.css`에** — 라이트에서 무지개가 흰 배경에 씻겨나가 `mix-blend-mode:
-  multiply`로 색을 살린다. 다크는 그대로(`normal`)가 선명하다. 이 전역 규칙을 스코프드
-  스타일에 두면 스코프 속성이 명시도를 올려 `.dark` override가 안 먹으므로 `style.css`에
-  둔다. **`screen`/`plus-lighter`(가산 블렌드)는 다크에서 mask+blur와 겹쳐 Chrome
-  합성이 깨져 화면이 백지가 되는 걸 확인 — 쓰지 말 것.**
+  스케일 계산 없이 어떤 축소율에서도 칸에 딱 맞는다. `hoveredCell`은 `Cell`의
+  `cellmouseenter` emit로 설정, 해제는 래퍼 `@mouseleave`로 `null`. 위치용 `lastCell`은
+  `null`로 안 돌아가 퇴장 애니메이션이 마지막 칸 자리에서 재생된다. 칸 간 이동은
+  `left/top` 0.12s 전이로 미끄러진다.
+- **모양·색** — `border-radius: 28%`(작은 칸에선 스퀴클 clip-path와 구분 안 됨),
+  `background`는 `--cell-glow-fill`, 베벨은 `inset ±3px … var(--cell-glow-bevel-light/dark)`.
+  등장 전이는 원본대로 `cubic-bezier(0.51, 0.61, 0, 2.3)`(2.3이 overshoot). 색은 전부
+  `src/style.css` 토큰(`--cell-glow-*`), 컴포넌트엔 색을 안 박는다.
+- **블렌드 모드는 `style.css`에** — 오버레이가 칸 위에 얹혀 글자를 덮으므로 `mix-blend-mode`로
+  틴트만 준다: 라이트는 `multiply`(흰 배경엔 노랑, 검은 글자는 그대로 비침), 다크는
+  `screen`(어두운 칸 위 밝은 노랑, 흰 글자 유지). 이 전역 규칙을 스코프드 스타일에 두면
+  스코프 속성이 명시도를 올려 `.dark` override가 안 먹으므로 `style.css`에 둔다.
+  (참고: `screen`/`plus-lighter`가 `mask` + `filter: blur`와 겹치면 다크에서 Chrome
+  합성이 깨져 화면이 백지가 된 적 있음 — 여기선 mask도 blur도 없어 안전.)
 - **출력·내보내기와 무관** — `GridPreview`/export SVG엔 없다(편집 화면 전용 장식).
 
 ### 출력 (`GridPreview.vue`)

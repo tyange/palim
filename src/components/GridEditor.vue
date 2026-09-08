@@ -15,39 +15,20 @@ const width = computed(() => cols.value * cellSize);
 const height = computed(() => rows.value * cellSize);
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
-const glowRef = useTemplateRef<HTMLDivElement>("glowEl");
 
 const hoveredCell = ref<number | null>(null);
+const lastCell = ref(0);
 
 const glowStyle = computed(() => {
-  if (hoveredCell.value === null) return undefined;
   const c = cols.value;
   const r = rows.value;
   return {
-    left: `${((hoveredCell.value % c) / c) * 100}%`,
-    top: `${(Math.floor(hoveredCell.value / c) / r) * 100}%`,
+    left: `${((lastCell.value % c) / c) * 100}%`,
+    top: `${(Math.floor(lastCell.value / c) / r) * 100}%`,
     width: `${100 / c}%`,
     height: `${100 / r}%`,
   };
 });
-
-let glowRaf = 0;
-
-function onGlowMove(event: MouseEvent) {
-  if (glowRaf) return;
-  const el = glowRef.value;
-  if (!el) return;
-  const { clientX, clientY } = event;
-  glowRaf = requestAnimationFrame(() => {
-    glowRaf = 0;
-    const rect = el.getBoundingClientRect();
-    if (!rect.width) return;
-    const mx = clientX - rect.left - rect.width / 2;
-    const my = clientY - rect.top - rect.height / 2;
-    const angle = (Math.atan2(my, mx) * (180 / Math.PI) + 360) % 360;
-    el.style.setProperty("--start", String(angle + 60));
-  });
-}
 
 const caretIndex = ref(0);
 const virtualCell = ref<number | null>(null);
@@ -196,6 +177,7 @@ function onCellMouseDown(cell: DisplayCell) {
 function onCellMouseEnter(cell: DisplayCell) {
   const idx = cell.row * cols.value + cell.col;
   hoveredCell.value = idx;
+  lastCell.value = idx;
   if (!isDragging.value) return;
   dragFocusCell.value = idx;
 }
@@ -334,17 +316,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("mouseup", endDrag);
-  if (glowRaf) cancelAnimationFrame(glowRaf);
 });
 </script>
 
 <template>
   <div class="flex w-full flex-col gap-2">
-    <div
-      class="relative w-full"
-      @mousemove="onGlowMove"
-      @mouseleave="hoveredCell = null"
-    >
+    <div class="relative w-full" @mouseleave="hoveredCell = null">
       <svg
         class="block h-auto w-full"
         :width="width"
@@ -378,9 +355,8 @@ onUnmounted(() => {
       </svg>
 
       <div
-        v-show="hoveredCell !== null"
-        ref="glowEl"
         class="cell-glow"
+        :class="{ 'cell-glow--on': hoveredCell !== null }"
         :style="glowStyle"
       />
 
@@ -409,45 +385,34 @@ onUnmounted(() => {
 }
 
 .cell-glow {
-  --start: 0;
   position: absolute;
   pointer-events: none;
+  border-radius: 28%;
+  background: var(--cell-glow-fill);
+  box-shadow:
+    inset 3px 3px 6px var(--cell-glow-bevel-light),
+    inset -3px -3px 6px var(--cell-glow-bevel-dark);
+  opacity: 0;
+  scale: 1;
   transition:
     left 0.12s ease,
     top 0.12s ease,
     width 0.12s ease,
-    height 0.12s ease;
+    height 0.12s ease,
+    opacity 0.3s cubic-bezier(0.51, 0.61, 0, 2.3),
+    scale 0.3s cubic-bezier(0.51, 0.61, 0, 2.3);
 }
 
-.cell-glow::before,
-.cell-glow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 2px;
-  background: conic-gradient(
-    from calc(var(--start) * 1deg),
-    var(--cell-glow-stops)
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-.cell-glow::after {
-  padding: 3px;
-  filter: blur(9px);
+.cell-glow--on {
+  opacity: 1;
+  scale: 1.1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cell-glow {
-    transition: none;
+    transition:
+      opacity 0.15s ease,
+      scale 0.15s ease;
   }
 }
 </style>
