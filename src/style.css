@@ -50,10 +50,12 @@ body {
   color: var(--foreground);
 }
 
-.cell-glow {
+.cell-glow,
+.cell-caret {
   mix-blend-mode: multiply;
 }
 
-.dark .cell-glow {
+.dark .cell-glow,
+.dark .cell-caret {
   mix-blend-mode: screen;
 }
