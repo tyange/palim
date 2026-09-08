@@ -43,7 +43,7 @@ CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-ca
 ### 셀 글로우 — hover한 칸 (편집 화면 전용)
 
 FreeFrontend "Squircle with a Border on Hover"를 **hover 중인 칸 하나**에 적용한다.
-마우스가 올라온 칸에 노란 임보싱(inset box-shadow) 스퀴클이 통통 튀며(overshoot 이징)
+마우스가 올라온 칸에 노란 스퀴클 테두리 + 글로우가 통통 튀며(overshoot 이징)
 scale 1→1.1 + opacity 0→1로 뜬다. 격자를 벗어나면 같은 이징으로 사라진다.
 
 - **왜 칸마다가 아니라 오버레이 1개** — 이 효과 자체는 순수 CSS라 칸마다 넣어도 되지만,
@@ -56,13 +56,14 @@ scale 1→1.1 + opacity 0→1로 뜬다. 격자를 벗어나면 같은 이징으
   `cellmouseenter` emit로 설정, 해제는 래퍼 `@mouseleave`로 `null`. 위치용 `lastCell`은
   `null`로 안 돌아가 퇴장 애니메이션이 마지막 칸 자리에서 재생된다. 칸 간 이동은
   `left/top` 0.12s 전이로 미끄러진다.
-- **모양·색** — `border-radius: 28%`(작은 칸에선 스퀴클 clip-path와 구분 안 됨),
-  `background`는 `--cell-glow-fill`, 베벨은 `inset ±3px … var(--cell-glow-bevel-light/dark)`.
-  등장 전이는 원본대로 `cubic-bezier(0.51, 0.61, 0, 2.3)`(2.3이 overshoot). 색은 전부
-  `src/style.css` 토큰(`--cell-glow-*`), 컴포넌트엔 색을 안 박는다.
-- **블렌드 모드는 `style.css`에** — 오버레이가 칸 위에 얹혀 글자를 덮으므로 `mix-blend-mode`로
-  틴트만 준다: 라이트는 `multiply`(흰 배경엔 노랑, 검은 글자는 그대로 비침), 다크는
-  `screen`(어두운 칸 위 밝은 노랑, 흰 글자 유지). 이 전역 규칙을 스코프드 스타일에 두면
+- **모양·색** — `border-radius: 28%`(작은 칸에선 스퀴클 clip-path와 구분 안 됨) +
+  `border: 2px solid var(--cell-glow)` **테두리만**(배경 채우기 아님 — 채우면 글자를
+  덮는다). 외곽 글로우 + 옅은 안쪽 글로우는 `box-shadow: 0 0 7px var(--cell-glow-halo),
+  inset 0 0 4px …`. 등장 전이는 원본대로 `cubic-bezier(0.51, 0.61, 0, 2.3)`(2.3이
+  overshoot). 색은 `src/style.css` 토큰(`--cell-glow`, `--cell-glow-halo`).
+- **블렌드 모드는 `style.css`에** — 테두리를 칸 배경에 자연스럽게 녹이려 `mix-blend-mode`로
+  틴트한다: 라이트는 `multiply`, 다크는 `screen`(어두운 칸 위에서 노랑이 밝게 뜸).
+  이 전역 규칙을 스코프드 스타일에 두면
   스코프 속성이 명시도를 올려 `.dark` override가 안 먹으므로 `style.css`에 둔다.
   (참고: `screen`/`plus-lighter`가 `mask` + `filter: blur`와 겹치면 다크에서 Chrome
   합성이 깨져 화면이 백지가 된 적 있음 — 여기선 mask도 blur도 없어 안전.)
