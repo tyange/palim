@@ -17,7 +17,7 @@
 ### SVG에서의 토큰
 
 **SVG presentation 속성값엔 `var()`가 안 먹힌다.** 그래서 편집 화면 SVG 요소는 속성 대신
-CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg); stroke: var(--grid-line) }`).
+CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-caret { stroke: var(--accent) }`).
 
 단 **내보내기 SVG/PNG는 외부 CSS 없이 동일 렌더**해야 하므로 미리보기는 흑(`#000000`)/
 백(`#ffffff`) **고정색**으로 칠한다.
@@ -29,7 +29,8 @@ CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg); stroke: var(
 `gridLayout`을 받아 `cellSize` 자연 크기의 SVG 격자로 그린다(화면이 좁으면 축소하지 않고
 스크롤 — 칸 클릭·배치 정확성 우선). 칸 1개는 SVG `<g role="gridcell">`로, 안에 겹쳐 그린다:
 
-- `cell-rect` — 칸 배경·**옅은 가이드** 테두리(`stroke-opacity: 0.5`)
+- `cell-rect` — 칸 배경(`fill: var(--cell-bg)`)만. **칸 테두리·가이드선은 없다** —
+  칸 경계는 hover 시 셀 글로우(아래)로만 드러나고, 평소엔 `--cell-bg` 평면이다.
 - `cell-selected` — 드래그로 선택된 칸 반투명 하이라이트(`v-if="cell.selected"`)
 - `active-cell cell-caret` — 활성 칸(조합 중 글자 또는 캐럿 위치). `active-pulse`
   애니메이션으로 깜박이는 캐럿
@@ -39,23 +40,30 @@ CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg); stroke: var(
 `mousedown`·`mouseenter`를 emit해 부모(`GridEditor`)의 드래그 선택에 연결한다. (원고지의
 여백 구두점·줄넘김 표식·soft-wrap 커넥터는 없다 — 묶기·금칙·자동 줄넘김을 안 하므로.)
 
-### 커서 추적 글로우 (편집 화면 전용)
+### 셀 글로우 — hover한 칸 (편집 화면 전용)
 
-SVG를 감싸는 `div.grid-glow`에 무지개 `conic-gradient` 테두리 글로우를 얹는다. 격자에
-hover하거나 숨은 textarea가 포커스를 가진 동안(`:hover, :focus-within`)만 나타나고
-(`opacity` 전이), 커서가 격자 밖으로 나가면 사라진다.
+CodePen "CSS Gradient Border Glowing Animation Hover Effect"를 **hover 중인 칸 하나**에
+적용한다. 마우스가 올라온 칸에 무지개 `conic-gradient` 테두리 + 번짐 광원이 뜨고, 커서를
+움직이면 색상 위상(`--start`)이 돈다. 격자를 벗어나면 사라진다.
 
-- **왜 프레임 하나에만** — CodePen 원본은 카드 단위 효과다. 칸(SVG `<rect>`)엔
-  `::before`·`mask-composite`·`filter: blur`·gradient 안 `var()`가 안 먹고, 240+칸마다
-  blur 광원을 그리면 마우스 이동마다 수백 레이어가 리페인트돼 버벅인다. 그래서 격자
-  외곽 프레임 하나만 장식한다("에디터에 머무는 동안 커서를 따라 도는 빛").
-- **구현** — `::before`(2px 얇은 호)와 `::after`(3px + `blur(11px)` 번짐) 두 겹.
-  둘 다 `background`는 `conic-gradient(from calc((var(--start) - 30) * 1deg), …)`,
-  `mask` + `mask-composite: exclude`(표준 gradient-border 트릭)로 padding 두께의
-  링만 남긴다. `--start`는 `GridEditor`의 `mousemove` 핸들러가 커서와 프레임 중심의
-  각도(`atan2`)로 매 프레임 갱신한다(`requestAnimationFrame` 스로틀).
-- **색은 토큰** — 무지개 색 스톱은 `src/style.css`의 `--grid-glow-stops`. 컴포넌트엔
-  색을 안 박는다(토큰 규칙 유지).
+- **왜 칸마다가 아니라 오버레이 1개** — 효과는 CSS 의사요소 + `mask-composite` +
+  `filter: blur` 조합이라 SVG `<rect>`엔 안 먹는다(`var()`도 SVG 속성엔 안 먹음).
+  240+칸에 각각 얹으면 mask 링 레이어가 그만큼 생겨 테마 전환·리사이즈 때 페인트가
+  튄다. 그래서 **SVG 위에 HTML `div.cell-glow` 딱 하나**를 두고, hover된 칸 위치로
+  옮긴다.
+- **위치** — 래퍼(`div.relative.w-full`)는 SVG 렌더 박스와 정확히 같으므로 오버레이를
+  **퍼센트**로 배치한다: `left = (col / cols) * 100%`, `width = 100 / cols %`(행도 동일).
+  스케일 계산 없이 어떤 축소율에서도 칸에 딱 맞는다. 칸 간 이동은 `left/top` 0.12s
+  전이로 미끄러진다. `hoveredCell`(칸 인덱스)은 `Cell`의 `cellmouseenter` emit로,
+  해제는 래퍼 `@mouseleave`로.
+- **테두리 링** — `::before`(2px)와 `::after`(3px + `blur(9px)` 번짐) 두 겹. `background`는
+  `conic-gradient(from calc(var(--start) * 1deg), var(--cell-glow-stops))` 풀 무지개
+  링(칸 크기에선 호를 좁히면 잘 안 보여 한 바퀴 다 칠한다). `mask` +
+  `mask-composite: exclude`(표준 gradient-border 트릭)로 padding 두께의 링만 남긴다.
+  `--start`는 `GridEditor`의 `mousemove` 핸들러가 커서와 오버레이 중심의 각도(`atan2`)로
+  `requestAnimationFrame` 스로틀해 갱신한다.
+- **색은 토큰** — 무지개 색 스톱은 `src/style.css`의 `--cell-glow-stops`(첫 색 = 끝 색으로
+  이음매 없이 순환). 컴포넌트엔 색을 안 박는다(토큰 규칙 유지).
 - **블렌드 모드는 `style.css`에** — 라이트에서 무지개가 흰 배경에 씻겨나가 `mix-blend-mode:
   multiply`로 색을 살린다. 다크는 그대로(`normal`)가 선명하다. 이 전역 규칙을 스코프드
   스타일에 두면 스코프 속성이 명시도를 올려 `.dark` override가 안 먹으므로 `style.css`에

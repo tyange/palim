@@ -15,8 +15,8 @@
   --accent: #5b61e6;
   --accent-contrast: #ffffff;
   --font-manuscript: "Noto Serif KR", serif;
-  --grid-glow-stops: #fb373c 8deg, #fc721c 22deg, #ffdc00 36deg, #1bceff 50deg,
-    #2a6bff 62deg, #d929ff 74deg, #ff0a5c 88deg;
+  --cell-glow-stops:
+    #fb373c, #fc721c, #ffdc00, #1bceff, #2a6bff, #d929ff, #ff0a5c, #fb373c;
 }
 
 .dark {
@@ -50,12 +50,12 @@ body {
   color: var(--foreground);
 }
 
-.grid-glow::before,
-.grid-glow::after {
+.cell-glow::before,
+.cell-glow::after {
   mix-blend-mode: multiply;
 }
 
-.dark .grid-glow::before,
-.dark .grid-glow::after {
+.dark .cell-glow::before,
+.dark .cell-glow::after {
   mix-blend-mode: normal;
 }

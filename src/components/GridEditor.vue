@@ -17,6 +17,20 @@ const height = computed(() => rows.value * cellSize);
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
 const glowRef = useTemplateRef<HTMLDivElement>("glowEl");
 
+const hoveredCell = ref<number | null>(null);
+
+const glowStyle = computed(() => {
+  if (hoveredCell.value === null) return undefined;
+  const c = cols.value;
+  const r = rows.value;
+  return {
+    left: `${((hoveredCell.value % c) / c) * 100}%`,
+    top: `${(Math.floor(hoveredCell.value / c) / r) * 100}%`,
+    width: `${100 / c}%`,
+    height: `${100 / r}%`,
+  };
+});
+
 let glowRaf = 0;
 
 function onGlowMove(event: MouseEvent) {
@@ -27,6 +41,7 @@ function onGlowMove(event: MouseEvent) {
   glowRaf = requestAnimationFrame(() => {
     glowRaf = 0;
     const rect = el.getBoundingClientRect();
+    if (!rect.width) return;
     const mx = clientX - rect.left - rect.width / 2;
     const my = clientY - rect.top - rect.height / 2;
     const angle = (Math.atan2(my, mx) * (180 / Math.PI) + 360) % 360;
@@ -179,8 +194,10 @@ function onCellMouseDown(cell: DisplayCell) {
 }
 
 function onCellMouseEnter(cell: DisplayCell) {
+  const idx = cell.row * cols.value + cell.col;
+  hoveredCell.value = idx;
   if (!isDragging.value) return;
-  dragFocusCell.value = cell.row * cols.value + cell.col;
+  dragFocusCell.value = idx;
 }
 
 function endDrag() {
@@ -323,7 +340,11 @@ onUnmounted(() => {
 
 <template>
   <div class="flex w-full flex-col gap-2">
-    <div ref="glowEl" class="grid-glow relative w-full" @mousemove="onGlowMove">
+    <div
+      class="relative w-full"
+      @mousemove="onGlowMove"
+      @mouseleave="hoveredCell = null"
+    >
       <svg
         class="block h-auto w-full"
         :width="width"
@@ -356,6 +377,13 @@ onUnmounted(() => {
         />
       </svg>
 
+      <div
+        v-show="hoveredCell !== null"
+        ref="glowEl"
+        class="cell-glow"
+        :style="glowStyle"
+      />
+
       <textarea
         ref="inputEl"
         aria-label="격자 입력"
@@ -380,21 +408,26 @@ onUnmounted(() => {
   stroke: var(--border);
 }
 
-.grid-glow {
+.cell-glow {
   --start: 0;
+  position: absolute;
+  pointer-events: none;
+  transition:
+    left 0.12s ease,
+    top 0.12s ease,
+    width 0.12s ease,
+    height 0.12s ease;
 }
 
-.grid-glow::before,
-.grid-glow::after {
+.cell-glow::before,
+.cell-glow::after {
   content: "";
   position: absolute;
   inset: 0;
   padding: 2px;
   background: conic-gradient(
-    from calc((var(--start) - 30) * 1deg),
-    transparent 0deg,
-    var(--grid-glow-stops),
-    transparent 96deg
+    from calc(var(--start) * 1deg),
+    var(--cell-glow-stops)
   );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -404,29 +437,16 @@ onUnmounted(() => {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.45s ease;
   pointer-events: none;
 }
 
-.grid-glow::after {
+.cell-glow::after {
   padding: 3px;
-  filter: blur(11px);
-}
-
-.grid-glow:hover::before,
-.grid-glow:focus-within::before {
-  opacity: 1;
-}
-
-.grid-glow:hover::after,
-.grid-glow:focus-within::after {
-  opacity: 0.7;
+  filter: blur(9px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .grid-glow::before,
-  .grid-glow::after {
+  .cell-glow {
     transition: none;
   }
 }

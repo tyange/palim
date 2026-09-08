@@ -29,8 +29,6 @@ const emit = defineEmits<{
       :y="cell.row * cellSize"
       :width="cellSize"
       :height="cellSize"
-      stroke-width="1"
-      vector-effect="non-scaling-stroke"
     />
     <rect
       v-if="cell.selected"
@@ -67,8 +65,6 @@ const emit = defineEmits<{
 <style scoped>
 .cell-rect {
   fill: var(--cell-bg);
-  stroke: var(--grid-line);
-  stroke-opacity: 0.5;
 }
 .cell-selected {
   fill: var(--accent);
