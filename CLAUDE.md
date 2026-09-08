@@ -134,6 +134,12 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 
 ## 배포
 
-`main` 푸시 시 GitHub Actions(`.github/workflows/deploy.yml`)가 `bun run build` →
+`main` 푸시 시 Forgejo Actions(`.forgejo/workflows/deploy.yml`)가 `bun run build` →
 AWS EC2로 SCP 업로드 → 심볼릭 링크 교체 → Nginx reload.
 `bun install --frozen-lockfile`이므로 **의존성 변경 시 `bun.lock` 커밋 필수**.
+
+- 러너는 `git.tyange.com`(self-hosted Forgejo)의 `tyange-labs` 조직 스코프 러너
+  (`--label self-hosted`). `uses:`는 완전한 `https://github.com/...` URL이어야 인식된다.
+- 필요한 secrets: `HOST`(러너에서 배포 대상으로 가는 주소 = `127.0.0.1`), `USERNAME`,
+  `LIGHTSAIL_SSH_KEY`(CRLF 없는 순수 PEM). vars: `DEPLOY_PATH`.
+- 저장소 Settings → Units에서 **Actions** 유닛이 켜져 있어야 워크플로를 읽는다.
