@@ -15,9 +15,8 @@
   --accent: #5b61e6;
   --accent-contrast: #ffffff;
   --font-manuscript: "Noto Serif KR", serif;
-  --cell-glow-fill: #ffdd55;
-  --cell-glow-bevel-light: #ffffccbb;
-  --cell-glow-bevel-dark: #eeaa1188;
+  --cell-glow: #ffdd55;
+  --cell-glow-halo: #ffdd5599;
 }
 
 .dark {

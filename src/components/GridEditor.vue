@@ -388,10 +388,10 @@ onUnmounted(() => {
   position: absolute;
   pointer-events: none;
   border-radius: 28%;
-  background: var(--cell-glow-fill);
+  border: 2px solid var(--cell-glow);
   box-shadow:
-    inset 3px 3px 6px var(--cell-glow-bevel-light),
-    inset -3px -3px 6px var(--cell-glow-bevel-dark);
+    0 0 7px 1px var(--cell-glow-halo),
+    inset 0 0 4px var(--cell-glow-halo);
   opacity: 0;
   scale: 1;
   transition:
