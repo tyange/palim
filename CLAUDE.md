@@ -26,7 +26,8 @@
   Tooltip/Toast). 스타일은 토큰으로 직접. 근거·규칙·함정은 `docs/ui-primitives.md`.
   편집면(격자/흐름)은 Reka 무관.
 - **격자 편집 표면은 [CodeMirror 6](https://codemirror.net)** (`@codemirror/state`·
-  `view`·`commands`, `basicSetup` 안 씀). 근거·통합·함정은 `docs/grid-editor.md`.
+  `view`·`commands`, `basicSetup` 안 씀) + 문서를 직사각형 패딩해 어디든 좌표로 배치.
+  근거·모델·동기화는 `docs/grid-editor.md`.
   흐름 모드는 plain `<textarea>`.
 - 포매터 **oxfmt**, 린터 **oxlint** (ESLint/Prettier 아님). VSCode는 `oxc.oxc-vscode` 권장.
 - 테스트 **Vitest** (Vite 설정 공유). 테스트는 대상 옆에 `*.test.ts`로 co-locate.
@@ -73,9 +74,10 @@ text(string) + mode            stores/manuscript.ts
 |---|---|
 | `core/tokenizer.ts` | `segmentGraphemes`: `Intl.Segmenter`로 자소 분할 + offset + 줄바꿈 판정만 |
 | `core/layout.ts` | `flowGraphemes`: 자소 1=1칸 평면 격자 배치 + 자동 cols/rows. 격자 무관 순수 로직 |
+| `core/rect.ts` | `trimRect`/`padRect` — 격자 에디터의 직사각형 패딩·정규화 순수 함수 |
 | `stores/manuscript.ts` | 본문 진실원천(`text` ref + `mode` ref + `gridLayout` computed) + `GRID`·`FLOW` 상수 |
 | `stores/editorUi.ts` | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발) |
-| `components/GridEditor.vue` | **격자 모드 편집.** CodeMirror 6. 테마 메트릭 = `GRID`, `word-spacing`(공백=1칸), `updateListener`↔`text` 동기화(에코 가드), `caretmove`(줄) emit. `docs/grid-editor.md` |
+| `components/GridEditor.vue` | **격자 모드 편집.** CM6 + 패딩된 직사각형(`core/rect.ts`) → 빈 공간 아무 데나 클릭·타이핑. `updateListener`↔`text`는 `trimRect`/`padRect`로 동기화. `R:C` 좌표 배지. `docs/grid-editor.md` |
 | `components/GridPreview.vue` | 격자 모드 출력. `gridLayout`을 격자선 없이 칸 중앙에 그린 깔끔한 SVG + export |
 | `components/FlowEditor.vue` | 흐름 모드 편집. 투명 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) + `caretmove`(줄 번호) emit |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
@@ -89,23 +91,22 @@ text(string) + mode            stores/manuscript.ts
 | `composables/useTheme.ts` | `useColorMode` 래핑(`isDark`·`toggle`). CommandBar/Palette 공용 |
 | `composables/useToast.ts` | 모듈 스코프 `toasts` 큐 + `addToast`/`dismiss` |
 
-### GridEditor.vue — CodeMirror 6
+### GridEditor.vue — CM6 + 패딩된 직사각형 (수정 전 필독)
 
-바닥부터 만든 편집 표면이 두 번 벽에 부딪혀(SVG 격자+숨은 textarea+가상 캐럿 →
-`archive/svg-grid-editor/`, 그다음 순수 `<textarea>` `1f4c0a4`) CM6으로 갔다.
-격자 모드 = 모노스페이스 텍스트 버퍼 + 캐럿 = CM6의 `state.doc`(문자열) 모델과 1:1.
-IME·undo/redo·선택·클립보드 내장.
+바닥부터 만든 편집 표면이 세 번 갈렸다: SVG 격자+숨은 textarea+가상 캐럿
+(`archive/svg-grid-editor/`) → 순수 `<textarea>`(`1f4c0a4`) → **CM6**(`c1b8203`).
 
-- 익스텐션은 손으로: `history()`, `keymap`(default+history), `drawSelection()`,
-  `updateListener`, `theme`. `basicSetup` 안 씀.
-- **테마 메트릭이 `GRID`(fontSize/lineHeight/padY/padX)와 정확히 일치**해야
-  `EditorView.vue`의 `centerOn`/`onJump` 기하가 그대로 맞는다.
-- `word-spacing: 0.5em` — 공백=1칸 보정. CM6은 실제 DOM을 측정하므로 캐럿 좌표 정확.
-- `text` 동기화: CM6→store는 `updateListener`(`docChanged && !applyingExternal`),
-  store→CM6는 `watch(text)`에서 값 다를 때만 전체 교체 `dispatch`. `applyingExternal`
-  플래그로 에코 차단(dispatch가 동기라 안전).
-- grow + 무대 스크롤(`&{height:auto}` + `.cm-scroller{overflow:visible}`).
-- 자세한 내용은 `docs/grid-editor.md`.
+핵심 아이디어: 시인이 **좌표로 계산해** 활자를 놓게 한다(스페이스를 세지 않음).
+
+- 에디터가 든 문서는 **항상 직사각형**: `padRect`(모든 줄 뒤에 공백 + 아래 12줄 여유).
+  → 모든 (행,열)이 진짜 위치라 빈 공간 클릭·방향키가 **CM6 네이티브**(가로채기 0,
+  IME·undo 안전).
+- `text` 진실원천은 `trimRect`로 clean 유지. 에디터↔스토어 동기화는 값 비교로 에코 판별.
+- `repad`: 타이핑이 뻗으면 `requestAnimationFrame` 디바운스로 직사각형 확장(append만,
+  `addToHistory:false`).
+- 익스텐션 손조립. 테마 메트릭 = `GRID`. `word-spacing:0.5em`(공백=1칸 근사).
+  `.cm-content`를 `flexGrow:0`+`width:max-content`로 shrink-wrap.
+- 격자선은 없다(피드백으로 제거). `docs/grid-editor.md`.
 
 ### 미리보기·내보내기
 
@@ -123,7 +124,7 @@ IME·undo/redo·선택·클립보드 내장.
 - `docs/writing-modes.md` — 두 모드(격자/흐름)의 근거·원고지 규칙을 버린 이유
 - `docs/architecture.md` — 진실원천·파이프라인·코어 엔진(segmentGraphemes/flowGraphemes)
 - `docs/editor-shell.md` — 전체 화면 몰입 셸·크롬 숨김·아웃라인·⌘K 팔레트·미리보기·포커스/타자기
-- `docs/grid-editor.md` — 격자 모드 편집 표면(CodeMirror 6): 채택 근거·통합·`word-spacing`·동기화
+- `docs/grid-editor.md` — 격자 모드 편집 표면(CM6 + 패딩된 직사각형): 근거·좌표 배치·`trimRect`/`padRect` 동기화
 - `docs/rendering-and-export.md` — 격자/흐름 렌더링·스타일 토큰·SVG/PNG 내보내기
 - (아카이브) `archive/svg-grid-editor/` — SVG 격자 편집 표면 1세대 + IME 버그 분석
 - `docs/ui-primitives.md` — 셸 UI의 Reka UI headless 프리미티브 채택·규칙·스코프 CSS 함정

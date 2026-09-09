@@ -1,85 +1,81 @@
-# 격자 에디터 — CodeMirror 6
+# 격자 에디터 — CodeMirror 6 + 패딩된 직사각형
 
-격자 모드 편집 표면(`src/components/GridEditor.vue`)은 **CodeMirror 6**다.
+격자 모드 편집 표면(`src/components/GridEditor.vue`)은 **CodeMirror 6**이고, 문서를
+**직사각형으로 패딩**해 어디든 좌표로 배치할 수 있게 한다.
 
 ## 왜 CM6
 
 바닥부터 만들었다가 두 번 벽에 부딪혔다:
 
 1. **SVG 격자 + 숨은 1px textarea + 가상 캐럿**(`archive/svg-grid-editor/`) — 브라우저가
-   공짜로 주는 캐럿·IME·선택·undo를 전부 재구현. 본문 소실, 클릭 시 캐럿이 맨 앞으로 튐,
-   IME 조합 중 자모 탈락.
-2. **순수 `<textarea>`**(커밋 `1f4c0a4`) — 편집은 되지만 격자를 도구로 키우기엔 hacky.
+   공짜로 주는 캐럿·IME·선택·undo를 전부 재구현. 본문 소실, 캐럿 튐, IME 자모 탈락.
+2. **순수 `<textarea>`**(커밋 `1f4c0a4`) — 편집은 되나 격자 도구로 키우기 hacky.
 
 격자 모드는 본질적으로 **모노스페이스 텍스트 버퍼 + 캐럿**이고 CM6의 모델과 1:1이다:
-`state.doc`가 그냥 문자열 = Palim의 `text` 진실원천(공백·줄바꿈이 곧 2D 배치). 트리도
-스키마도 없다. CM6은 CJK/한국어 IME를 제대로 처리하고 undo/redo·선택·클립보드가 내장.
+`state.doc`가 그냥 문자열 = Palim의 `text` 진실원천(공백·줄바꿈이 곧 2D 배치). CM6은
+CJK/한국어 IME를 제대로 처리하고 undo/redo·선택·클립보드가 내장.
 
-> headless UI(Reka)엔 텍스트 편집 프리미티브가 없다. "Reka로 만든 에디터"는 결국
-> 위 1번 커스텀 코드와 같다 — 그래서 편집 표면만은 CM6.
+> headless UI(Reka)엔 텍스트 편집 프리미티브가 없다 — 그래서 편집 표면만은 CM6.
 
 ## 패키지
 
 `@codemirror/state` + `@codemirror/view` + `@codemirror/commands`만. `codemirror`
-메타패키지(`basicSetup`)는 줄번호·폴딩·문법 하이라이트·자동완성 등 시에 불필요한 걸
-끌고 와서 안 쓴다. 익스텐션은 손으로 조립: `history()`, `keymap.of([...defaultKeymap,
-...historyKeymap])`, `drawSelection()`, `updateListener`, `theme`.
+메타패키지(`basicSetup`, 줄번호·폴딩·문법 하이라이트 등)는 안 쓴다. 익스텐션은 손으로:
+`history()`, `keymap(default+history)`, `drawSelection()`, `highlightActiveLine()`,
+`updateListener`, `theme`.
 
-## 통합 (`GridEditor.vue`)
+## 좌표로 자유 배치 — 패딩된 직사각형
 
-- **grow + 바깥 스크롤**: `EditorView.theme`에서 `"&"{height:auto}` + `.cm-scroller
-  {overflow:visible}`. CM6이 내용만큼 자라고 스크롤은 `EditorView.vue`의 무대(`stageRef`,
-  세로·가로 둘 다)가 한다. `.cm-scroller`는 한 축만 스크롤 불가라(CSS) grow 모델이 맞다.
-- **테마 메트릭 = `GRID` 필수**. `.cm-content`의 `fontSize`·`lineHeight`·`padding`을
-  `stores/manuscript.ts`의 `GRID.fontSize/lineHeight/padY/padX`와 정확히 맞춰야
-  `EditorView.vue`의 `centerOn`/`onJump` 기하(`line * lineHeight + padY`)가 그대로 맞는다.
-- **`word-spacing: 0.5em`** — 고정폭 CJK 폰트(`Nanum Gothic Coding`)에서 공백이 한글의
-  반칸이라, 소스의 "공백 1 = 칸 1"이 눌린다. 이걸로 공백 총폭을 한 칸에 맞춘다(한글 위주
-  시 기준; 라틴·숫자 혼용은 여전히 어긋남, 데이터는 항상 정확). **CM6은 실제 렌더된 DOM을
-  측정**하므로 `word-spacing`이 있어도 캐럿 좌표가 정확하다(클릭 위치 = 삽입 위치).
-- **`text` ↔ 에디터 동기화**:
-  - CM6 → store: `updateListener`에서 `u.docChanged && !applyingExternal`이면
-    `text.value = u.state.doc.toString()`.
-  - store → CM6: `watch(text, v => …)`에서 `v !== view.state.doc.toString()`일 때만
-    전체 교체 `dispatch`. 모드 토글 왕복 등 외부 변경용.
-  - **에코 가드**: `applyingExternal` 플래그 — `watch`가 dispatch하기 직전 true,
-    직후 false. `dispatch`가 동기라 updateListener도 그 안에서 동기 호출되므로 안전.
-- **타자기 모드**: `updateListener`에서 현재 줄
-  (`u.state.doc.lineAt(head).number - 1`)을 `caretmove`로 emit → `EditorView.vue`의
-  `onCaretLine`이 `typewriter`일 때 무대를 스크롤. (SVG 시절 표시 전용 훅 그대로)
-- 색은 토큰: `caretColor`·`.cm-cursor` = `var(--foreground)`, 선택 배경 =
-  `color-mix(in srgb, var(--accent) 22%, transparent)`. CM6 theme 값은 임의 CSS
-  문자열 허용.
-- 마운트: `onMounted`에 `new EditorView({parent, state})` + `view.focus()`.
-  `onBeforeUnmount`에 `view.destroy()`.
-- **`.cm-content` shrink-wrap**: CM6 기본이 `.cm-content { flex-grow: 2 }`라 무대 폭
-  전체로 늘어난다(활성 줄 밴드·격자가 1400px+로 뻗음). 테마에서 `flexGrow:0` +
-  `flexShrink:0` + `width:max-content`로 내용 폭에 맞춘다. 넓은 시는 무대가 가로 스크롤.
+시인은 "여기서 12칸 오른쪽, 2줄 아래"처럼 **위치를 계산**해 활자를 놓는다. 스페이스를
+직접 세지 않는다.
 
-## 격자선 (`src/editor/gridLines.ts`)
+- 에디터가 든 문서는 **항상 직사각형**: 모든 줄을 `(최장 줄 + MARGIN_COLS)` 폭으로 뒤에
+  공백 패딩 + 아래에 `MARGIN_ROWS`(12)개의 전폭 공백 줄. `src/core/rect.ts`의 `padRect`.
+- 그래서 **모든 (행, 열)이 이미 진짜 문서 위치**(=공백)다. 빈 공간 클릭·방향키 이동이
+  전부 **CM6 네이티브** — 가로채기 코드 0, IME·undo 안전(캐럿이 늘 실제 위치).
+- 타이핑하면 그 자리 공백이 글자로 대체된다.
+- **`text` 진실원천은 깨끗하게 유지**: 에디터→스토어 동기화 때 `trimRect`(줄 끝 공백,
+  끝의 빈 줄 제거). 흐름 모드·`GridPreview`·내보내기는 이 clean 문자열을 본다.
+- 우하단에 `R:C` 좌표 배지(`doc.lineAt(head)`).
 
-CM6 `layer()` 익스텐션. 세로·가로선을 `RectangleMarker`(1px div)로 그린다.
+## 동기화 (`GridEditor.vue`)
 
-- **하드코딩 금지 — 실측에서 뽑는다**:
-  - 칸 폭 = 첫 한글 위치의 `coordsAtPos(p)`와 `coordsAtPos(p+1)` x 차 (렌더된 실제
-    advance. `word-spacing` 포함해 정확. 폴백 `defaultCharacterWidth * 2`).
-  - 원점 = `coordsAtPos(0)`를 `scrollDOM` 기준 좌표로 변환(`RectangleMarker`의
-    left/top이 그 좌표계).
-  - 행 높이 = `view.defaultLineHeight`.
-- **재계산**: `layer.update`가 `geometryChanged || docChanged || viewportChanged`에
-  true 반환 → CM6 measure 사이클에서 markers 재생성. 폰트 크기 변경·웹폰트 스왑·줌에
-  전부 따라간다(이게 CSS 하드코딩 그라디언트를 안 쓴 이유).
-- 색: `.cm-grid-col, .cm-grid-row { background: var(--grid-line) }` (라이트/다크 토큰).
-  `.cm-grid-layer { pointer-events: none }`.
+- **에디터 → 스토어**: `updateListener`에서 `docChanged && !internal`이면
+  `text.value = trimRect(doc)`.
+- **스토어 → 에디터**: `watch(text)`에서 `trimRect(doc) !== v`일 때만
+  전체 교체 `dispatch({insert: padRect(v)})`. 모드 토글 왕복 등 외부 변경용.
+  에코 판별은 플래그가 아니라 **값 비교**(`watch`는 비동기라 플래그가 경계를 못 넘는다).
+- **재패딩(`repad`)**: 타이핑이 오른쪽/아래로 뻗으면 직사각형을 키운다.
+  `requestAnimationFrame`으로 디바운스, **추가(append)만** 하고 줄이지 않으며
+  (커서 안전), `Transaction.addToHistory.of(false)`로 undo 스텝에 안 남긴다.
+  줄이는 정규화는 다음 `watch(text)` 왕복이 `padRect` 전체 교체로 처리.
+- `internal` 플래그: 우리가 낸 `dispatch` 동안 `updateListener`가 스토어로 되쏘지
+  않게. `dispatch`는 동기라 안전.
 
-활성 줄: `highlightActiveLine()` + `.cm-activeLine { background: color-mix(...
---foreground 4% ...) }`.
+## 렌더 (`EditorView.theme`)
 
-## 아직 없는 것 (다음 단계)
+- 메트릭 = `stores/manuscript.ts`의 `GRID`(fontSize/lineHeight/padY/padX)와 일치 →
+  `EditorView.vue`의 `centerOn`/`onJump` 기하(`line*lineHeight + padY`)가 그대로 맞는다.
+- `word-spacing: 0.5em` — 고정폭 CJK 폰트에서 공백이 한글의 반칸이라, 공백 N개가
+  N칸으로 보이게 보정(한글 위주 기준; 라틴·숫자는 여전히 ½칸). CM6이 실 DOM을 측정하므로
+  캐럿 좌표는 정확.
+- grow + 무대 스크롤: `"&"{height:auto}` + `.cm-scroller{overflow:visible}`.
+- **shrink-wrap**: CM6 기본 `.cm-content{flex-grow:2}`를 `flexGrow:0`+`width:max-content`로
+  덮어 활성 줄 밴드가 무대 폭 전체로 안 뻗게.
+- 색: 커서·`.cm-cursor` = `var(--foreground)`, 선택 = `color-mix(--accent 22%)`,
+  `.cm-activeLine` = `color-mix(--foreground 3.5%)`.
 
-- **반각 문자 격자 정렬**: 라틴·숫자는 ½칸이라 순한글 아닌 줄에서 어긋난다. 반각 런에
-  `Decoration.mark` + `letter-spacing`(+ 트레일링 보정)으로 1칸 advance 강제 예정.
-  트레이드오프: `2026`이 `2 0 2 6`처럼 벌어져 보임 → 켤지 말지 옵션.
-- 활성 "칸" 박스(현재 칸 하이라이트), "빈 2D 공간 클릭 → 그 자리 캐럿"(SVG 시절 차별점 —
-  `domEventHandlers.mousedown` + `posAtCoords` + `dispatch`로 공백·줄바꿈 삽입 복원 가능).
-- 흐름 모드는 계속 plain `<textarea>`(`FlowEditor.vue`).
+## 순수 함수 (`src/core/rect.ts` + 테스트)
+
+- `trimRect(s)` — 줄 끝 공백·탭 제거, 끝의 빈 줄 제거(최소 1줄 유지).
+- `padRect(s, marginCols=8, marginRows=12)` — 내부에서 `trimRect` 후 직사각형 패딩.
+  `trimRect(padRect(x)) === trimRect(x)`, `padRect(padRect(x)) === padRect(x)`(멱등).
+
+## 아직 없는 것
+
+- **격자선(시각 그리드)** — CM6 `layer()` + 실측(`coordsAtPos`)으로 그렸다가
+  "너무 직사각형" 피드백으로 걷어냈다(커밋 `d250cdd` → 이 커밋에서 제거). 다시 넣으면
+  옅고 정사각에 가깝게.
+- **반각 문자 정렬** — 라틴·숫자 ½칸. 반각 런에 `Decoration.mark` + `letter-spacing`으로
+  1칸 강제 가능(트레이드오프: `2026`이 벌어져 보임).
+- 활성 "칸" 박스. 흐름 모드는 계속 plain `<textarea>`(`FlowEditor.vue`).
