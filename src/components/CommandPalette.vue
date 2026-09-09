@@ -27,7 +27,7 @@ interface Command {
 
 const { mode } = storeToRefs(useManuscriptStore());
 const ui = useEditorUiStore();
-const { paletteOpen, focusMode, typewriter, previewOpen } = storeToRefs(ui);
+const { paletteOpen, typewriter, previewOpen } = storeToRefs(ui);
 const { isDark, toggle: toggleTheme } = useTheme();
 
 const query = ref("");
@@ -44,11 +44,6 @@ const commands = computed<Command[]>(() => [
     label: previewOpen.value ? "미리보기 닫기" : "미리보기 열기",
     hint: "⌘↵",
     run: () => ui.togglePreview(),
-  },
-  {
-    id: "focus",
-    label: focusMode.value ? "포커스 모드 끄기" : "포커스 모드 켜기",
-    run: () => ui.toggleFocusMode(),
   },
   {
     id: "typewriter",

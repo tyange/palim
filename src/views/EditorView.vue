@@ -28,7 +28,7 @@ function revealChrome() {
 function centerOn(innerY: number, smooth = true) {
   const el = stageRef.value;
   if (!el) return;
-  const surface = el.querySelector("svg, textarea");
+  const surface = el.querySelector("textarea");
   if (!surface) return;
   const contentY =
     surface.getBoundingClientRect().top -
@@ -41,18 +41,18 @@ function centerOn(innerY: number, smooth = true) {
   });
 }
 
-function onGridCaret(pos: { x: number; y: number }) {
-  if (typewriter.value) centerOn(pos.y);
+function metrics() {
+  return mode.value === "grid" ? GRID : FLOW;
 }
-function onFlowCaret(line: number) {
-  if (typewriter.value) centerOn(line * FLOW.lineHeight + FLOW.padY);
+
+function onCaretLine(line: number) {
+  if (!typewriter.value) return;
+  const m = metrics();
+  centerOn(line * m.lineHeight + m.padY);
 }
 function onJump(line: number) {
-  const y =
-    mode.value === "grid"
-      ? line * GRID.rowSize + GRID.rowSize / 2
-      : line * FLOW.lineHeight + FLOW.padY;
-  centerOn(y);
+  const m = metrics();
+  centerOn(line * m.lineHeight + m.padY);
 }
 
 function onKey(e: KeyboardEvent) {
@@ -86,13 +86,11 @@ onUnmounted(() => {
 
     <div ref="stageRef" class="relative min-w-0 flex-1 overflow-auto">
       <div
-        class="pt-[12vh] pb-[45vh] px-[clamp(24px,8vw,160px)]"
-        :class="
-          mode === 'grid' ? 'w-max min-w-full' : 'flex w-full justify-center'
-        "
+        class="w-full pt-[12vh] pb-[45vh] px-[clamp(24px,8vw,160px)]"
+        :class="mode === 'grid' ? '' : 'flex justify-center'"
       >
-        <GridEditor v-if="mode === 'grid'" @caretmove="onGridCaret" />
-        <FlowEditor v-else @caretmove="onFlowCaret" />
+        <GridEditor v-if="mode === 'grid'" @caretmove="onCaretLine" />
+        <FlowEditor v-else @caretmove="onCaretLine" />
       </div>
     </div>
 

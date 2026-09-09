@@ -3,16 +3,12 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export const useEditorUiStore = defineStore("editorUi", () => {
-  const focusMode = useLocalStorage("palim-focus-mode", true);
   const typewriter = useLocalStorage("palim-typewriter", true);
 
   const previewOpen = ref(false);
   const paletteOpen = ref(false);
   const chromeVisible = ref(true);
 
-  function toggleFocusMode() {
-    focusMode.value = !focusMode.value;
-  }
   function toggleTypewriter() {
     typewriter.value = !typewriter.value;
   }
@@ -21,12 +17,10 @@ export const useEditorUiStore = defineStore("editorUi", () => {
   }
 
   return {
-    focusMode,
     typewriter,
     previewOpen,
     paletteOpen,
     chromeVisible,
-    toggleFocusMode,
     toggleTypewriter,
     togglePreview,
   };

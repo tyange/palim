@@ -3,10 +3,12 @@ import { computed, ref } from "vue";
 import { flowGraphemes } from "../core/layout";
 
 export const GRID = {
-  colSize: 32,
-  rowSize: 44,
   minCols: 20,
   minRows: 12,
+  fontSize: 20,
+  lineHeight: 34,
+  padX: 16,
+  padY: 16,
 } as const;
 
 export const FLOW = {

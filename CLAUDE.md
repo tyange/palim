@@ -71,12 +71,11 @@ text(string) + mode            stores/manuscript.ts
 | `core/tokenizer.ts` | `segmentGraphemes`: `Intl.Segmenter`로 자소 분할 + offset + 줄바꿈 판정만 |
 | `core/layout.ts` | `flowGraphemes`: 자소 1=1칸 평면 격자 배치 + 자동 cols/rows. 격자 무관 순수 로직 |
 | `stores/manuscript.ts` | 본문 진실원천(`text` ref + `mode` ref + `gridLayout` computed) + `GRID`·`FLOW` 상수 |
-| `stores/editorUi.ts` | 셸 UI 상태. `focusMode`·`typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발) |
-| `components/GridEditor.vue` | **격자 모드 편집.** 입력·캐럿·IME·드래그 선택. 숨은 textarea로 입력 수집, SVG 격자(테두리·배경 없음) 렌더. 활성 셀 watch → `caretmove` emit(타자기 스크롤용, 표시 전용) |
+| `stores/editorUi.ts` | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발) |
+| `components/GridEditor.vue` | **격자 모드 편집.** 고정폭(`Nanum Gothic Coding`) `<textarea>` + `white-space:pre` + `word-spacing`(공백=1칸 보정). 캐럿·IME·선택·undo 전부 네이티브. `caretmove`(줄) emit. SVG 격자 1세대는 `archive/svg-grid-editor/` |
 | `components/GridPreview.vue` | 격자 모드 출력. `gridLayout`을 격자선 없이 칸 중앙에 그린 깔끔한 SVG + export |
 | `components/FlowEditor.vue` | 흐름 모드 편집. 투명 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) + `caretmove`(줄 번호) emit |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
-| `components/Cell.vue` | 칸 1개를 SVG `<g>`로. rect(투명 히트)/selected/caret(채운 소프트 스퀴클, 맥동)/text. `dim`이면 감광. mousedown·enter emit |
 | `components/OutlineRail.vue` | 좌측 상주 아웃라인. Reka `Listbox` — 화살표 이동, 선택 시 `jump` |
 | `components/CommandBar.vue` | 하단 중앙 플로팅 알약. Reka `Toolbar` — 격자/흐름 `ToolbarToggleGroup` + ⌘K + 테마 버튼(+`Tooltip`). 옛 ModeToggle·PaneToggle·ThemeToggle 흡수 |
 | `components/CommandPalette.vue` | ⌘K 팔레트. Reka `Dialog` + `Listbox`/`ListboxFilter`. 필터는 수동, 선택 watch → 실행 |
@@ -87,21 +86,25 @@ text(string) + mode            stores/manuscript.ts
 | `composables/useTheme.ts` | `useColorMode` 래핑(`isDark`·`toggle`). CommandBar/Palette 공용 |
 | `composables/useToast.ts` | 모듈 스코프 `toasts` 큐 + `addToast`/`dismiss` |
 
-### GridEditor.vue — 입력·캐럿 모델 (수정 전 필독)
+### GridEditor.vue — 표준 textarea (2026-09-09 리셋)
 
-SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 textarea**가 키보드/IME를
-수집한다(`display:none`은 포커스 불가라 금지). 핵심 상태:
+SVG 격자 + 숨은 textarea + 가상 캐럿(`virtualCell`/`materializeCaret`)으로 직접 만든
+1세대 편집 표면은 취약해서(본문 소실·캐럿 튐·IME 자모 탈락) 걷어냈다 →
+`archive/svg-grid-editor/`(코드·`editor-input-model.md`·`korean-ime-bug.md` + 복원법).
 
-- **가상 캐럿(`virtualCell`)**: 빈 칸을 클릭하면 공백을 만들지 않고 화면 캐럿만 그 칸에 그린다.
-  실제 입력 직전(`materializeCaret`)에만 텍스트로 실체화 → 탐색만 하다 떠나면 흔적이 안 남는다.
-- **IME 타이밍**: keyCode 229("Process") keydown 시점(=조합 시작 전)에 실체화해야 IME가
-  올바른 offset에서 조합을 시작한다. `compositionstart`/`beforeinput`은 이미 늦다.
-- **v-model 금지**: IME 조합 중 input 이벤트를 무시하므로 native `@input`을 직접 받는다.
-- **활성 칸 기준**: 캐럿 '왼쪽 칸'을 활성으로 본다(행두 글자는 `caretBeforeCell`로 보정).
-- **선택**: 드래그는 칸 단위 anchor~focus. 삭제는 선택 밴드가 덮는 offset 구간을 통째로 잘라낸다.
-- **표시 전용**: 포커스 모드 감광(`dim`)·타자기 `caretmove` emit은 캐럿 상태를 읽기만 한다.
-  입력·IME·선택 로직은 절대 건드리지 않는다.
-- 자세한 내용은 `docs/editor-input-model.md`(입력) / `docs/editor-shell.md`(셸·몰입 모드).
+지금은 **그냥 `<textarea>`**다. 브라우저가 캐럿·IME·선택·undo/redo·클립보드를 다 준다.
+
+- `white-space: pre` + `wrap="off"` — 줄바꿈 안 함, 소스 문자열의 2D 배치(공백+줄바꿈)
+  그대로. 긴 줄은 가로 스크롤.
+- `font-family: "Nanum Gothic Coding"`(고정폭). CJK 고정폭 폰트는 공백이 한글의 반칸이라
+  `word-spacing: 0.5em`으로 공백 총폭을 1칸에 맞춘다 → **한글+공백은 1글자=1칸 정렬**.
+  라틴·숫자는 반칸이라 혼용 시 어긋남(데이터는 항상 정확).
+- `caretmove`(현재 줄 번호) emit → `EditorView`의 타자기 스크롤.
+- 포커스 모드(줄 단위 감광)는 textarea로 불가 → 제거.
+- 격자선(시각적 그리드)은 아직 없음.
+
+> **아직 갱신 대기**: `writing-modes.md`(§4 "격자=차별점, 클릭 배치"),
+> `architecture.md`·`rendering-and-export.md`·`editor-shell.md`의 SVG 격자 서술.
 
 ### 미리보기·내보내기
 
@@ -118,10 +121,9 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 코드엔 주석을 두지 않으므로 "왜"는 모두 여기 있다. 관련 코드 수정 전 **반드시 참고**:
 - `docs/writing-modes.md` — 두 모드(격자/흐름)의 근거·원고지 규칙을 버린 이유
 - `docs/architecture.md` — 진실원천·파이프라인·코어 엔진(segmentGraphemes/flowGraphemes)
-- `docs/editor-input-model.md` — GridEditor의 캐럿·IME·가상 칸·선택 모델
 - `docs/editor-shell.md` — 전체 화면 몰입 셸·크롬 숨김·아웃라인·⌘K 팔레트·미리보기·포커스/타자기
 - `docs/rendering-and-export.md` — 격자/흐름 렌더링·스타일 토큰·SVG/PNG 내보내기
-- `docs/korean-ime-bug.md` — 한국어 IME 조합 중 자모 탈락 버그 분석
+- (아카이브) `archive/svg-grid-editor/` — SVG 격자 편집 표면 1세대 + IME 버그 분석
 - `docs/ui-primitives.md` — 셸 UI의 Reka UI headless 프리미티브 채택·규칙·스코프 CSS 함정
 - `docs/TODO-e2e-testing.md` — e2e 보류 결정 + 한글 IME 재현 가능 러너 조사(Playwright+CDP)
 
@@ -145,7 +147,7 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - `bun run build`가 `vue-tsc` 타입체크를 겸하므로 타입 회귀는 여기서 잡힌다.
 - IME/캐럿 회귀는 Vitest로 잡기 어렵다(브라우저 IME 의존). `bun run dev`(port 5173)로
   띄운 뒤 입력 시퀀스를 직접 재현하고 콘솔에서 코드포인트를 덤프해 확인한다
-  (`docs/korean-ime-bug.md`의 디버깅 절 참고).
+  (아카이브된 `archive/svg-grid-editor/korean-ime-bug.md` 참고).
 
 ## 배포
 
