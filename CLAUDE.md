@@ -106,7 +106,7 @@ text(string) + mode            stores/manuscript.ts
   `addToHistory:false`).
 - 익스텐션 손조립. 테마 메트릭 = `GRID`. `word-spacing:0.5em`(공백=1칸 근사).
   `.cm-content`를 `flexGrow:0`+`width:max-content`로 shrink-wrap.
-- 격자선은 없다(피드백으로 제거). `docs/grid-editor.md`.
+- 격자선·활성 줄 밴드 없음(피드백). 캐럿은 2px accent + glow(시인성). `docs/grid-editor.md`.
 
 ### 미리보기·내보내기
 

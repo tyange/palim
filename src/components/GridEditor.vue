@@ -4,7 +4,6 @@ import { EditorState, Transaction } from "@codemirror/state";
 import {
   drawSelection,
   EditorView,
-  highlightActiveLine,
   keymap,
   type ViewUpdate,
 } from "@codemirror/view";
@@ -37,19 +36,20 @@ const theme = EditorView.theme({
     minWidth: "0",
     flexGrow: "0",
     flexShrink: "0",
-    caretColor: "var(--foreground)",
+    caretColor: "transparent",
     color: "var(--foreground)",
   },
   ".cm-line": { padding: "0" },
   "&.cm-focused": { outline: "none" },
-  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--foreground)" },
+  ".cm-cursor, .cm-dropCursor": {
+    borderLeft: "2px solid var(--accent)",
+    marginLeft: "-1px",
+    boxShadow: "0 0 6px color-mix(in srgb, var(--accent) 70%, transparent)",
+  },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection":
     {
       background: "color-mix(in srgb, var(--accent) 22%, transparent)",
     },
-  ".cm-activeLine": {
-    background: "color-mix(in srgb, var(--foreground) 3.5%, transparent)",
-  },
 });
 
 function reportCursor(state: EditorState) {
@@ -146,7 +146,6 @@ onMounted(() => {
         history(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         drawSelection(),
-        highlightActiveLine(),
         EditorView.updateListener.of(onUpdate),
         theme,
       ],

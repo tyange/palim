@@ -61,9 +61,11 @@ CJK/한국어 IME를 제대로 처리하고 undo/redo·선택·클립보드가 �
   캐럿 좌표는 정확.
 - grow + 무대 스크롤: `"&"{height:auto}` + `.cm-scroller{overflow:visible}`.
 - **shrink-wrap**: CM6 기본 `.cm-content{flex-grow:2}`를 `flexGrow:0`+`width:max-content`로
-  덮어 활성 줄 밴드가 무대 폭 전체로 안 뻗게.
-- 색: 커서·`.cm-cursor` = `var(--foreground)`, 선택 = `color-mix(--accent 22%)`,
-  `.cm-activeLine` = `color-mix(--foreground 3.5%)`.
+  덮어 콘텐츠가 무대 폭 전체로 안 뻗게.
+- **커서 시인성**: 큰 빈 벌판에서 캐럿을 놓치지 않도록, 네이티브 캐럿은 숨기고
+  (`.cm-content{caret-color:transparent}`) `drawSelection()`의 `.cm-cursor`를
+  `border-left: 2px solid var(--accent)` + `box-shadow: 0 0 6px accent/70%`로 그린다.
+- 선택 배경 = `color-mix(--accent 22%)`. **활성 줄 밴드는 없다**(피드백으로 제거).
 
 ## 순수 함수 (`src/core/rect.ts` + 테스트)
 
