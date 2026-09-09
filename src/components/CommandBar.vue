@@ -89,6 +89,8 @@ function onModeChange(next: unknown) {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
   padding: 6px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -106,6 +108,7 @@ function onModeChange(next: unknown) {
 .command-bar .seg {
   display: flex;
   gap: 2px;
+  flex-shrink: 0;
 }
 .command-bar .seg :deep(button) {
   padding: 5px 12px;
@@ -115,6 +118,7 @@ function onModeChange(next: unknown) {
   color: var(--muted);
   font: inherit;
   font-size: 13px;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background 0.12s ease,
@@ -137,6 +141,7 @@ function onModeChange(next: unknown) {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
   padding: 5px 10px;
   border: 0;
   border-radius: 999px;
@@ -144,6 +149,7 @@ function onModeChange(next: unknown) {
   color: var(--muted);
   font: inherit;
   font-size: 13px;
+  white-space: nowrap;
   cursor: pointer;
 }
 .command-bar .kbd:hover {
