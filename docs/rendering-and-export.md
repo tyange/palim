@@ -17,7 +17,7 @@
 ### SVG에서의 토큰
 
 **SVG presentation 속성값엔 `var()`가 안 먹힌다.** 그래서 편집 화면 SVG 요소는 속성 대신
-CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-caret { stroke: var(--accent) }`).
+CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-caret { stroke: var(--cell-glow) }`).
 
 단 **내보내기 SVG/PNG는 외부 CSS 없이 동일 렌더**해야 하므로 미리보기는 흑(`#000000`)/
 백(`#ffffff`) **고정색**으로 칠한다.
@@ -32,8 +32,9 @@ CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-ca
 - `cell-rect` — 칸 배경(`fill: var(--cell-bg)`)만. **칸 테두리·가이드선은 없다** —
   칸 경계는 hover 시 셀 글로우(아래)로만 드러나고, 평소엔 `--cell-bg` 평면이다.
 - `cell-selected` — 드래그로 선택된 칸 반투명 하이라이트(`v-if="cell.selected"`)
-- `active-cell cell-caret` — 활성 칸(조합 중 글자 또는 캐럿 위치). `active-pulse`
-  애니메이션으로 깜박이는 캐럿
+- `active-cell cell-caret` — 활성 칸(조합 중 글자 또는 캐럿 위치). hover 셀 글로우와
+  **같은 노란색·둥근 사각**(`stroke: var(--cell-glow)`, `rx = cellSize * 0.28`,
+  같은 `mix-blend-mode`)이되 글로우 없이 `active-pulse`로 깜박여 hover와 구분된다
 - `cell-text` — 칸 자소(중앙 정렬)
 - 격자 외곽 `grid-frame`
 

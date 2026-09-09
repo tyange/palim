@@ -45,6 +45,8 @@ const emit = defineEmits<{
       :y="cell.row * cellSize"
       :width="cellSize"
       :height="cellSize"
+      :rx="cellSize * 0.28"
+      :ry="cellSize * 0.28"
       stroke-width="2"
       vector-effect="non-scaling-stroke"
     />
@@ -55,7 +57,7 @@ const emit = defineEmits<{
       :y="cell.row * cellSize + cellSize / 2"
       dominant-baseline="central"
       text-anchor="middle"
-      font-size="18"
+      font-size="16"
     >
       {{ cell.value }}
     </text>
@@ -71,9 +73,8 @@ const emit = defineEmits<{
   fill-opacity: 0.16;
 }
 .cell-caret {
-  fill: var(--accent);
-  fill-opacity: 0.12;
-  stroke: var(--accent);
+  fill: none;
+  stroke: var(--cell-glow);
 }
 .cell-text {
   fill: var(--foreground);
@@ -86,7 +87,7 @@ const emit = defineEmits<{
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.4;
   }
 }
 
