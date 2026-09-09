@@ -1,76 +1,106 @@
 <script setup lang="ts">
-import { useMediaQuery } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
+import CommandBar from "../components/CommandBar.vue";
+import CommandPalette from "../components/CommandPalette.vue";
 import FlowEditor from "../components/FlowEditor.vue";
-import FlowPreview from "../components/FlowPreview.vue";
 import GridEditor from "../components/GridEditor.vue";
-import GridPreview from "../components/GridPreview.vue";
-import ModeToggle from "../components/ModeToggle.vue";
-import PaneToggle from "../components/PaneToggle.vue";
-import ThemeToggle from "../components/ThemeToggle.vue";
-import { useManuscriptStore } from "../stores/manuscript";
+import OutlineRail from "../components/OutlineRail.vue";
+import PreviewOverlay from "../components/PreviewOverlay.vue";
+import { useEditorUiStore } from "../stores/editorUi";
+import { FLOW, GRID, useManuscriptStore } from "../stores/manuscript";
 
 const { mode } = storeToRefs(useManuscriptStore());
+const ui = useEditorUiStore();
+const { typewriter, chromeVisible, paletteOpen, previewOpen } = storeToRefs(ui);
 
-const isCompact = useMediaQuery("(max-width: 1151px)");
-const activePane = ref<"editor" | "preview">("editor");
+const stageRef = ref<HTMLElement | null>(null);
+
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+function revealChrome() {
+  chromeVisible.value = true;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (!paletteOpen.value) chromeVisible.value = false;
+  }, 2600);
+}
+
+function centerOn(innerY: number, smooth = true) {
+  const el = stageRef.value;
+  if (!el) return;
+  const surface = el.querySelector("svg, textarea");
+  if (!surface) return;
+  const contentY =
+    surface.getBoundingClientRect().top -
+    el.getBoundingClientRect().top +
+    el.scrollTop +
+    innerY;
+  el.scrollTo({
+    top: contentY - el.clientHeight / 2,
+    behavior: smooth ? "smooth" : "auto",
+  });
+}
+
+function onGridCaret(pos: { x: number; y: number }) {
+  if (typewriter.value) centerOn(pos.y);
+}
+function onFlowCaret(line: number) {
+  if (typewriter.value) centerOn(line * FLOW.lineHeight + FLOW.padY);
+}
+function onJump(line: number) {
+  const y =
+    mode.value === "grid"
+      ? line * GRID.rowSize + GRID.rowSize / 2
+      : line * FLOW.lineHeight + FLOW.padY;
+  centerOn(y);
+}
+
+function onKey(e: KeyboardEvent) {
+  const meta = e.metaKey || e.ctrlKey;
+  if (meta && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    paletteOpen.value = !paletteOpen.value;
+    if (paletteOpen.value) chromeVisible.value = true;
+  } else if (meta && e.key === "Enter") {
+    e.preventDefault();
+    previewOpen.value = !previewOpen.value;
+  } else if (e.key === "Escape") {
+    if (paletteOpen.value) paletteOpen.value = false;
+    else if (previewOpen.value) previewOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", onKey);
+  revealChrome();
+});
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKey);
+  clearTimeout(idleTimer);
+});
 </script>
 
 <template>
   <main
-    class="flex min-h-screen flex-col bg-background p-5 text-foreground min-[1152px]:justify-center max-[700px]:p-3"
+    class="fixed inset-0 flex overflow-hidden bg-background text-foreground"
+    @pointermove="revealChrome"
   >
-    <div
-      class="mx-auto flex w-full flex-col gap-12 mt-12 min-[1152px]:mt-0 max-[700px]:gap-16 max-[700px]:mt-8"
-      :class="isCompact ? 'max-w-[544px]' : 'max-w-[1112px]'"
-    >
-      <header class="flex items-center justify-between gap-4">
-        <div>
-          <h1 class="m-0 text-2xl leading-tight font-medium">Palim</h1>
-          <p class="mt-1 mb-0 text-sm text-muted">
-            시 쓰기를 위한 텍스트 에디터
-          </p>
-        </div>
-        <ThemeToggle />
-      </header>
+    <OutlineRail @jump="onJump" />
 
-      <div class="flex flex-col gap-3">
-        <ModeToggle />
-
-        <PaneToggle v-if="isCompact" v-model="activePane" class="py-1" />
-
-        <div
-          class="flex gap-6"
-          :class="
-            isCompact
-              ? 'flex-col items-center'
-              : mode === 'grid'
-                ? 'flex-col items-start'
-                : 'items-start'
-          "
-        >
-          <div
-            v-show="!isCompact || activePane === 'editor'"
-            class="flex min-w-0 flex-col gap-2"
-            :class="mode === 'grid' ? 'w-full' : 'max-w-full'"
-          >
-            <div class="flex h-[30px] items-center">
-              <span class="text-sm text-muted">에디터</span>
-            </div>
-            <GridEditor v-if="mode === 'grid'" />
-            <FlowEditor v-else />
-          </div>
-
-          <div
-            v-show="!isCompact || activePane === 'preview'"
-            :class="mode === 'grid' ? 'w-full' : ''"
-          >
-            <GridPreview v-if="mode === 'grid'" />
-            <FlowPreview v-else />
-          </div>
-        </div>
+    <div ref="stageRef" class="relative min-w-0 flex-1 overflow-auto">
+      <div
+        class="py-[46vh] px-[clamp(24px,8vw,160px)]"
+        :class="
+          mode === 'grid' ? 'w-max min-w-full' : 'flex w-full justify-center'
+        "
+      >
+        <GridEditor v-if="mode === 'grid'" @caretmove="onGridCaret" />
+        <FlowEditor v-else @caretmove="onFlowCaret" />
       </div>
     </div>
+
+    <CommandBar />
+    <CommandPalette />
+    <PreviewOverlay />
   </main>
 </template>

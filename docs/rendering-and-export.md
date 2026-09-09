@@ -17,67 +17,63 @@
 ### SVG에서의 토큰
 
 **SVG presentation 속성값엔 `var()`가 안 먹힌다.** 그래서 편집 화면 SVG 요소는 속성 대신
-CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-caret { stroke: var(--cell-glow) }`).
+CSS 클래스로 칠한다(예: `.cell-rect { fill: var(--cell-bg) }`, `.cell-caret { fill: var(--cell-active) }`).
 
 단 **내보내기 SVG/PNG는 외부 CSS 없이 동일 렌더**해야 하므로 미리보기는 흑(`#000000`)/
 백(`#ffffff`) **고정색**으로 칠한다.
+
+### 편집 화면 격자 토큰 (모노크롬)
+
+격자 표면은 잉크 계열 무채색만 쓴다(방향 B "무한 여백" 시안):
+
+- `--cell-bg: transparent` — 칸에 배경을 칠하지 않는다. 격자는 "종이 한 장"이 아니라
+  글자가 곧 화면. `.cell-rect`는 투명 채움이라 클릭 히트 타겟으로만 남는데, 투명 fill은
+  브라우저 히트테스트가 불안정하므로 **`pointer-events: all`을 명시**해 칸 클릭을 보장한다.
+- `--cell-active` — 활성 칸(캐럿 위치)에 깔리는 **채워진 소프트 스퀴클**. 라이트는
+  전경색 9%, 다크는 14% 알파. 테두리·글로우 없음.
+- `--caret` — (예약) 소프트 블록 커서 색. 현재는 활성 칸 스퀴클이 커서 표시를 겸한다.
+- 옛 `--cell-glow`/`--cell-glow-halo`(노란 hover 스퀴클)·`--grid-line`/`--grid-guide`는
+  제거됐다.
 
 ## 격자 모드 (`GridEditor.vue` + `Cell.vue` / `GridPreview.vue`)
 
 ### 편집 화면 (`GridEditor.vue` + `Cell.vue`)
 
-`gridLayout`을 받아 `cellSize` 자연 크기의 SVG 격자로 그린다(화면이 좁으면 축소하지 않고
-스크롤 — 칸 클릭·배치 정확성 우선). 칸 1개는 SVG `<g role="gridcell">`로, 안에 겹쳐 그린다:
+`gridLayout`을 받아 **자연 크기**의 SVG 격자로 그린다(`class="block"` — `w-full` 축소
+없음. 좁은 화면에서는 무대가 가로 스크롤 → 칸 클릭·배치 정확성 우선). 메트릭은
+`GRID.colSize`(가로 advance, 32) / `GRID.rowSize`(세로 advance, 44 — **행 간격 확대**)로
+갈린다. 칸 1개는 SVG `<g role="gridcell">`로, 안에 겹쳐 그린다:
 
-- `cell-rect` — 칸 배경(`fill: var(--cell-bg)`)만. **칸 테두리·가이드선은 없다** —
-  칸 경계는 hover 시 셀 글로우(아래)로만 드러나고, 평소엔 `--cell-bg` 평면이다.
+- `cell-rect` — `colSize × rowSize` 투명 사각(`fill: var(--cell-bg)` = transparent).
+  **칸 테두리·배경·가이드선·외곽 프레임 전부 없다.** 클릭 히트 타겟으로만 존재.
 - `cell-selected` — 드래그로 선택된 칸 반투명 하이라이트(`v-if="cell.selected"`)
-- `active-cell cell-caret` — 활성 칸(조합 중 글자 또는 캐럿 위치). hover 셀 글로우와
-  **같은 노란색·둥근 사각**(`stroke: var(--cell-glow)`, `rx = cellSize * 0.28`,
-  같은 `mix-blend-mode`)이되 글로우 없이 `active-pulse`로 깜박여 hover와 구분된다
-- `cell-text` — 칸 자소(중앙 정렬)
-- 격자 외곽 `grid-frame`
+- `cell-caret` — 활성 칸(조합 중 글자 또는 캐럿 위치). **채워진 소프트 스퀴클**
+  (`fill: var(--cell-active)`, 글자 박스 크기 `min(rowSize-4, colSize*1.3)`,
+  `rx ≈ 박스*0.32`). 테두리·글로우 없이 `caret-breathe`(opacity 1↔.5, 1.2s)로 은은히
+  맥동해 커서임을 알린다.
+- `cell-text` — 칸 자소(중앙 정렬, `font-size 20`)
+- **포커스 모드**일 때 활성 행이 아닌 칸은 `dim: true` → `.cell-group--dim`으로
+  `opacity:.28` 감광(`editor-shell.md`).
 
-`mousedown`·`mouseenter`를 emit해 부모(`GridEditor`)의 드래그 선택에 연결한다. (원고지의
-여백 구두점·줄넘김 표식·soft-wrap 커넥터는 없다 — 묶기·금칙·자동 줄넘김을 안 하므로.)
+`mousedown`·`mouseenter`를 emit해 부모(`GridEditor`)의 드래그 선택에 연결한다.
+`GridEditor`는 활성 셀 인덱스를 watch해 `caretmove`(SVG 내부 좌표)를 emit — 타자기
+모드 스크롤용이며 캐럿·입력 모델과 무관하다(`editor-input-model.md`).
 
-### 셀 글로우 — hover한 칸 (편집 화면 전용)
-
-FreeFrontend "Squircle with a Border on Hover"를 **hover 중인 칸 하나**에 적용한다.
-마우스가 올라온 칸에 노란 스퀴클 테두리 + 글로우가 통통 튀며(overshoot 이징)
-scale 1→1.1 + opacity 0→1로 뜬다. 격자를 벗어나면 같은 이징으로 사라진다.
-
-- **왜 칸마다가 아니라 오버레이 1개** — 이 효과 자체는 순수 CSS라 칸마다 넣어도 되지만,
-  240+칸에 상시 얹으면 DOM·페인트 비용이 크다. hover는 항상 한 칸뿐이므로 **SVG 위에
-  HTML `div.cell-glow` 딱 하나**를 두고 hover된 칸 위치로 옮긴다. 오버레이는 항상 DOM에
-  있고(`v-show` 아님) opacity/scale로만 토글해야 등장/퇴장 전이가 실제로 재생된다.
-- **위치** — 래퍼(`div.relative.w-full`)는 SVG 렌더 박스와 정확히 같으므로 오버레이를
-  **퍼센트**로 배치한다: `left = (col / cols) * 100%`, `width = 100 / cols %`(행도 동일).
-  스케일 계산 없이 어떤 축소율에서도 칸에 딱 맞는다. `hoveredCell`은 `Cell`의
-  `cellmouseenter` emit로 설정, 해제는 래퍼 `@mouseleave`로 `null`. 위치용 `lastCell`은
-  `null`로 안 돌아가 퇴장 애니메이션이 마지막 칸 자리에서 재생된다. 칸 간 이동은
-  `left/top` 0.12s 전이로 미끄러진다.
-- **모양·색** — `border-radius: 28%`(작은 칸에선 스퀴클 clip-path와 구분 안 됨) +
-  `border: 2px solid var(--cell-glow)` **테두리만**(배경 채우기 아님 — 채우면 글자를
-  덮는다). 외곽 글로우 + 옅은 안쪽 글로우는 `box-shadow: 0 0 7px var(--cell-glow-halo),
-  inset 0 0 4px …`. 등장 전이는 원본대로 `cubic-bezier(0.51, 0.61, 0, 2.3)`(2.3이
-  overshoot). 색은 `src/style.css` 토큰(`--cell-glow`, `--cell-glow-halo`).
-- **블렌드 모드는 `style.css`에** — 테두리를 칸 배경에 자연스럽게 녹이려 `mix-blend-mode`로
-  틴트한다: 라이트는 `multiply`, 다크는 `screen`(어두운 칸 위에서 노랑이 밝게 뜸).
-  이 전역 규칙을 스코프드 스타일에 두면
-  스코프 속성이 명시도를 올려 `.dark` override가 안 먹으므로 `style.css`에 둔다.
-  (참고: `screen`/`plus-lighter`가 `mask` + `filter: blur`와 겹치면 다크에서 Chrome
-  합성이 깨져 화면이 백지가 된 적 있음 — 여기선 mask도 blur도 없어 안전.)
-- **출력·내보내기와 무관** — `GridPreview`/export SVG엔 없다(편집 화면 전용 장식).
+> **hover 셀 글로우 제거됨.** 이전엔 hover한 칸에 노란 스퀴클 테두리 오버레이(`.cell-glow`)
+> 하나를 얹었다(FreeFrontend "Squircle with a Border on Hover", `mix-blend-mode` 틴트).
+> 모노크롬 몰입 방향으로 가면서 hover 장식과 `--cell-glow`/`--cell-glow-halo` 토큰,
+> `style.css`의 `mix-blend-mode` 규칙을 전부 걷어냈다. `cursor: text`만 남는다.
 
 ### 출력 (`GridPreview.vue`)
 
 `gridLayout.cellText`를 **격자선 없이** 칸마다 글자를 그린 흰 배경 SVG. 빈 칸·공백 칸은
-글자를 안 그린다. 단 **자간은 편집 화면의 칸 폭(32px)이 아니라 흐름 모드와 같은 글자 폭**을
-쓴다 — 한 칸 가로 advance = 전각 한글 글자 폭(canvas `measureText("가")`, 웹폰트 로드 후
-재측정), 행 advance = `FLOW.lineHeight`. 공백 칸도 같은 advance를 차지해 "공백 = 글자 한 칸"
-으로 다중 공백 간격이 보존된다(배치형 시의 핵심). 즉 흐름 모드 같은 자연스러운 자간에
-**공백만 글자 폭으로 고정**한 형태다.
+글자를 안 그린다. 단 **자간은 편집 화면의 칸 advance(`GRID.colSize`/`rowSize`)가 아니라
+흐름 모드와 같은 글자 폭**을 쓴다 — 한 칸 가로 advance = 전각 한글 글자 폭(canvas
+`measureText("가")`, 웹폰트 로드 후 재측정), 행 advance = `FLOW.lineHeight`. 공백 칸도 같은
+advance를 차지해 "공백 = 글자 한 칸"으로 다중 공백 간격이 보존된다(배치형 시의 핵심). 즉
+흐름 모드 같은 자연스러운 자간에 **공백만 글자 폭으로 고정**한 형태다. (편집 화면은 배치
+조작 편의를 위해 칸을 더 벌려 그리므로 두 화면의 픽셀 크기는 다르고, **상대 배치**만
+1:1로 일치한다.)
 
 SVG는 자연 크기(스케일 안 함)로 그리고, 이를 **full-width 흰 박스**(`div`) 좌상단에 얹는다.
 박스는 부모 폭에 꽉 차 내용 양과 무관하게 일정하고(짧은 글도 큰 박스 유지), 글자는 출력물
@@ -88,10 +84,13 @@ SVG는 자연 크기(스케일 안 함)로 그리고, 이를 **full-width 흰 �
 
 ### 편집 (`FlowEditor.vue`)
 
-`text`에 바인딩된 스타일된 `<textarea>`. `white-space: pre-wrap`로 공백·줄바꿈을 보존하고,
+`text`에 바인딩된 `<textarea>`. `white-space: pre-wrap`로 공백·줄바꿈을 보존하고,
 `--font-manuscript`·`FLOW` 메트릭(폭·폰트·줄높이·패딩)으로 출력과 같은 모습으로 그린다.
 IME·캐럿·공백은 textarea가 native로 처리하므로 격자의 숨은 textarea 장치가 필요 없다.
-입력 시 `scrollHeight`로 세로 자동 확장한다.
+입력 시 `scrollHeight`로 세로 자동 확장한다(무대가 스크롤하므로 전체 높이로 자란다).
+**테두리·배경 없이 투명**하게 그려 몰입 셸에 녹아든다. 캐럿 앞 `\n` 수로 현재 줄을 세어
+`caretmove`(줄 번호)를 emit — 타자기 모드 스크롤용(`editor-shell.md`). 포커스 모드는 줄
+단위 스타일이 안 돼 흐름 모드엔 적용하지 않는다.
 
 ### 출력 (`FlowPreview.vue`)
 
@@ -118,14 +117,14 @@ IME·캐럿·공백은 textarea가 native로 처리하므로 격자의 숨은 te
   await해 폰트 로드를 보장한다. 호출부(GridPreview/FlowPreview)가 `draw(ctx)` 콜백에서 칸
   중앙 `fillText`(격자) 또는 줄별 `fillText`(흐름)를 수행한다.
 
-## 반응형·토글 컴포넌트
+## 셸·토글 컴포넌트
 
-- `EditorView.vue` — 모드 분기는 `store.mode`로 `GridEditor`/`FlowEditor`·
-  `GridPreview`/`FlowPreview`를 고른다. **격자 모드(데스크탑)는 편집·미리보기를 좌우 분할
-  대신 세로로 쌓는다** — 격자가 컨테이너 전체 폭을 써 폭 넓은 시도 잘리지 않게 하기 위해서다
-  (좌우 분할이면 에디터 폭이 절반뿐이라 넓은 격자가 클리핑됨). 흐름 모드는 박스가 좁아 좌우
-  분할 그대로다. 컴팩트(≤1151px)에선 `PaneToggle`로 편집↔미리보기를 한 번에 하나만
-  보여준다(둘 다 마운트 유지 → 상태 보존).
-- `ModeToggle.vue` — 격자↔흐름 스위치(`store.mode`).
-- `PaneToggle.vue` — 컴팩트 모드 전용 편집↔미리보기 토글.
+- `EditorView.vue` — **전체 화면 몰입 셸**. 모드 분기(`GridEditor`/`FlowEditor`), 크롬
+  숨김, 타자기 스크롤, ⌘K/⌘↵ 키를 담당한다. 미리보기는 좌우 분할이 아니라
+  `PreviewOverlay`로 겹쳐 본다. 자세한 내용은 `editor-shell.md`.
+- `OutlineRail.vue` — 좌측 상주 아웃라인 레일(소스 줄 목록, 클릭 시 해당 줄로 스크롤).
+- `CommandBar.vue` — 하단 중앙 플로팅 알약(격자/흐름 세그먼트 + ⌘K + `ThemeToggle`).
+  옛 `ModeToggle.vue`·`PaneToggle.vue`를 흡수하고 두 파일은 삭제됐다.
+- `CommandPalette.vue` — ⌘K 명령 팔레트(모드·미리보기·포커스·타자기·테마).
+- `PreviewOverlay.vue` — ⌘↵ 전체 화면 미리보기(`GridPreview`/`FlowPreview` 래핑).
 - `ThemeToggle.vue` — `useColorMode`(auto/light/dark)로 `<html>.dark` 토글. 기본은 `auto`.

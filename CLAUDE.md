@@ -9,7 +9,9 @@
 - **흐름(flow) 모드**: 보통 공백 + 자연스러운 줄 흐름의 **산문·일반 시**용. 비례폭으로
   조판해 출판본처럼 보인다.
 
-각 모드는 **편집 화면과 출력(미리보기·내보내기)이 같은 메트릭**이라 둘이 어긋나지 않는다.
+각 모드는 편집 화면과 출력(미리보기·내보내기)이 **같은 조판 모델**을 써 서로 어긋나지
+않는다(흐름은 픽셀까지, 격자는 상대 배치가 1:1 — 편집 격자는 조작 편의로 칸을 더 벌린다).
+에디터는 크롬을 숨긴 **전체 화면 몰입 셸**이다(`docs/editor-shell.md`).
 
 > **IMPORTANT: 코드엔 주석이 없다. 모든 "왜"는 `docs/`에 있다.**
 > 작업 시작 전, 그리고 관련 코드를 건드리기 전에 **항상** [참고 문서](#참고-문서-docs)의
@@ -52,27 +54,32 @@ text(string) + mode            stores/manuscript.ts
   칸↔캐럿 역산(`offsetToCell`/`cellSpan`)이 이 offset 위에서 동작한다.
 - **격자 자동 확장**: `flowGraphemes`는 `cols = max(minCols, 최장 줄)`,
   `rows = max(minRows, 줄수+1)`로 격자를 내용에 맞춰 키운다(줄바꿈 없음, 소스 한 줄 =
-  격자 한 행). 크기 상수는 `stores/manuscript.ts`의 `GRID`(cellSize·minCols·minRows)·
-  `FLOW`(width·fontSize·lineHeight·pad).
+  격자 한 행). 크기 상수는 `stores/manuscript.ts`의 `GRID`(colSize·rowSize·minCols·
+  minRows)·`FLOW`(width·fontSize·lineHeight·pad). 편집 화면은 `colSize`(가로)·`rowSize`
+  (세로, 더 넓음)로 칸을 벌려 그린다.
 
 ## 컴포넌트 지도
 
-데이터 흐름: `App → EditorView → ModeToggle + (모드별 편집/미리보기)`. 모두 같은 스토어 구독.
+데이터 흐름: `App → EditorView(전체 화면 셸) → (모드별 편집) + 크롬(레일·명령 바) +
+오버레이(팔레트·미리보기)`. 모두 같은 스토어 구독.
 
 | 파일 | 책임 / 알아둘 점 |
 |---|---|
 | `core/tokenizer.ts` | `segmentGraphemes`: `Intl.Segmenter`로 자소 분할 + offset + 줄바꿈 판정만 |
 | `core/layout.ts` | `flowGraphemes`: 자소 1=1칸 평면 격자 배치 + 자동 cols/rows. 격자 무관 순수 로직 |
-| `stores/manuscript.ts` | 진실원천(`text` ref + `mode` ref + `gridLayout` computed) + `GRID`·`FLOW` 상수 |
-| `components/GridEditor.vue` | **격자 모드 편집.** 입력·캐럿·IME·드래그 선택. 숨은 textarea로 입력 수집, SVG 격자 렌더. hover한 칸에 노란 스퀴클 셀 글로우(HTML 오버레이 `.cell-glow` 1개를 hover 칸 위치로 이동, scale+fade bounce, 편집 화면 전용) |
+| `stores/manuscript.ts` | 본문 진실원천(`text` ref + `mode` ref + `gridLayout` computed) + `GRID`·`FLOW` 상수 |
+| `stores/editorUi.ts` | 셸 UI 상태. `focusMode`·`typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발) |
+| `components/GridEditor.vue` | **격자 모드 편집.** 입력·캐럿·IME·드래그 선택. 숨은 textarea로 입력 수집, SVG 격자(테두리·배경 없음) 렌더. 활성 셀 watch → `caretmove` emit(타자기 스크롤용, 표시 전용) |
 | `components/GridPreview.vue` | 격자 모드 출력. `gridLayout`을 격자선 없이 칸 중앙에 그린 깔끔한 SVG + export |
-| `components/FlowEditor.vue` | 흐름 모드 편집. 스타일된 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) |
+| `components/FlowEditor.vue` | 흐름 모드 편집. 투명 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) + `caretmove`(줄 번호) emit |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
-| `components/Cell.vue` | 칸 1개를 SVG `<g>`로. rect/selected/active(깜박이는 캐럿)/text. mousedown·enter emit |
-| `components/ModeToggle.vue` | 격자↔흐름 토글(`store.mode`) |
-| `components/PaneToggle.vue` | 좁은 화면 전용 편집↔미리보기 토글 (`v-model<"editor"\|"preview">`) |
+| `components/Cell.vue` | 칸 1개를 SVG `<g>`로. rect(투명 히트)/selected/caret(채운 소프트 스퀴클, 맥동)/text. `dim`이면 감광. mousedown·enter emit |
+| `components/OutlineRail.vue` | 좌측 상주 아웃라인(소스 줄 목록). 클릭 시 `jump`로 해당 줄 스크롤 |
+| `components/CommandBar.vue` | 하단 중앙 플로팅 알약. 격자/흐름 세그먼트 + ⌘K + `ThemeToggle`. (옛 ModeToggle·PaneToggle 흡수) |
+| `components/CommandPalette.vue` | ⌘K 명령 팔레트(모드·미리보기·포커스·타자기·테마). `↑↓`·Enter·Esc |
+| `components/PreviewOverlay.vue` | ⌘↵ 전체 화면 미리보기(`GridPreview`/`FlowPreview` 래핑) |
 | `components/ThemeToggle.vue` | `useColorMode`(auto/light/dark) — `<html>.dark` 클래스 토글 |
-| `views/EditorView.vue` | 반응형 레이아웃 + 모드별 편집/미리보기 분기. ≤1151px이면 PaneToggle로 전환 |
+| `views/EditorView.vue` | **전체 화면 몰입 셸.** 모드 분기, 크롬 숨김, 타자기 스크롤, ⌘K/⌘↵/Esc 키. `docs/editor-shell.md` |
 | `composables/useExport.ts` | SVG 직렬화 저장 + PNG(canvas `fillText`, 3배 스케일) 공통 헬퍼 |
 
 ### GridEditor.vue — 입력·캐럿 모델 (수정 전 필독)
@@ -87,12 +94,14 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - **v-model 금지**: IME 조합 중 input 이벤트를 무시하므로 native `@input`을 직접 받는다.
 - **활성 칸 기준**: 캐럿 '왼쪽 칸'을 활성으로 본다(행두 글자는 `caretBeforeCell`로 보정).
 - **선택**: 드래그는 칸 단위 anchor~focus. 삭제는 선택 밴드가 덮는 offset 구간을 통째로 잘라낸다.
-- 자세한 내용은 `docs/editor-input-model.md`.
+- **표시 전용**: 포커스 모드 감광(`dim`)·타자기 `caretmove` emit은 캐럿 상태를 읽기만 한다.
+  입력·IME·선택 로직은 절대 건드리지 않는다.
+- 자세한 내용은 `docs/editor-input-model.md`(입력) / `docs/editor-shell.md`(셸·몰입 모드).
 
 ### 미리보기·내보내기
 
-- **GridPreview**: 격자선 없이 자소를 칸 중앙에 배치(편집 화면과 같은 cellSize → 위치 1:1).
-  내용 바운딩 박스로 trim해 깔끔히 내보낸다.
+- **GridPreview**: 격자선 없이 자소를 칸 중앙에 배치(편집 화면과 **상대 배치 1:1**, 픽셀
+  크기는 다름 — 미리보기는 흐름 자간 + 공백만 글자 폭 고정). 내용 바운딩 박스로 trim.
 - **FlowPreview**: canvas `measureText`로 글자 폭을 재 박스 폭에 맞춰 줄을 흘리고, 실제 `\n`
   에서만 줄을 끊는다. 웹폰트(Noto Serif KR) 로드 후 재조판.
 - **SVG/PNG 저장**(`useExport`): SVG는 화면 SVG를 inline 속성으로 직렬화. PNG는 같은 조판을
@@ -105,6 +114,7 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - `docs/writing-modes.md` — 두 모드(격자/흐름)의 근거·원고지 규칙을 버린 이유
 - `docs/architecture.md` — 진실원천·파이프라인·코어 엔진(segmentGraphemes/flowGraphemes)
 - `docs/editor-input-model.md` — GridEditor의 캐럿·IME·가상 칸·선택 모델
+- `docs/editor-shell.md` — 전체 화면 몰입 셸·크롬 숨김·아웃라인·⌘K 팔레트·미리보기·포커스/타자기
 - `docs/rendering-and-export.md` — 격자/흐름 렌더링·스타일 토큰·SVG/PNG 내보내기
 - `docs/korean-ime-bug.md` — 한국어 IME 조합 중 자모 탈락 버그 분석
 - `docs/TODO-daisyui.md` — daisyUI 도입 보류 결정

@@ -4,4 +4,5 @@ export interface DisplayCell {
   value: string;
   selected: boolean;
   active: boolean;
+  dim: boolean;
 }

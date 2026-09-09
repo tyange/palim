@@ -29,7 +29,7 @@ text(string) + mode            ← 단일 진실원천 (stores/manuscript.ts)
 
 | 상수 | 키 | 의미 |
 |---|---|---|
-| `GRID` | `cellSize` 32 | 격자 칸 한 변(px) |
+| `GRID` | `colSize` 32 · `rowSize` 44 | 편집 격자 칸 advance(가로·세로, px) |
 | | `minCols` 20 | 격자 최소 열 수 |
 | | `minRows` 12 | 격자 최소 행 수 |
 | `FLOW` | `width` 680 | 흐름 모드 박스 폭(px) |

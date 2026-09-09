@@ -1,34 +1,31 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  useTemplateRef,
+  watch,
+} from "vue";
+import { useEditorUiStore } from "../stores/editorUi";
 import { GRID, useManuscriptStore } from "../stores/manuscript";
 import type { DisplayCell } from "../types/editor.types";
 import Cell from "./Cell.vue";
 
-const { cellSize } = GRID;
+const { colSize, rowSize } = GRID;
+
+const emit = defineEmits<{ caretmove: [pos: { x: number; y: number }] }>();
 
 const { text, gridLayout } = storeToRefs(useManuscriptStore());
+const { focusMode } = storeToRefs(useEditorUiStore());
 
 const rows = computed(() => gridLayout.value.rows);
 const cols = computed(() => gridLayout.value.cols);
-const width = computed(() => cols.value * cellSize);
-const height = computed(() => rows.value * cellSize);
+const width = computed(() => cols.value * colSize);
+const height = computed(() => rows.value * rowSize);
 
 const inputRef = useTemplateRef<HTMLTextAreaElement>("inputEl");
-
-const hoveredCell = ref<number | null>(null);
-const lastCell = ref(0);
-
-const glowStyle = computed(() => {
-  const c = cols.value;
-  const r = rows.value;
-  return {
-    left: `${((lastCell.value % c) / c) * 100}%`,
-    top: `${(Math.floor(lastCell.value / c) / r) * 100}%`,
-    width: `${100 / c}%`,
-    height: `${100 / r}%`,
-  };
-});
 
 const caretIndex = ref(0);
 const virtualCell = ref<number | null>(null);
@@ -175,11 +172,8 @@ function onCellMouseDown(cell: DisplayCell) {
 }
 
 function onCellMouseEnter(cell: DisplayCell) {
-  const idx = cell.row * cols.value + cell.col;
-  hoveredCell.value = idx;
-  lastCell.value = idx;
   if (!isDragging.value) return;
-  dragFocusCell.value = idx;
+  dragFocusCell.value = cell.row * cols.value + cell.col;
 }
 
 function endDrag() {
@@ -298,16 +292,38 @@ const cells = computed<DisplayCell[]>(() => {
   const range = selectionRange.value;
   const selecting = range !== null && range.min !== range.max;
 
-  return Array.from({ length: L.rows * c }, (_, index) => ({
-    row: Math.floor(index / c),
-    col: index % c,
-    value: L.cellText[index] ?? "",
-    selected: selecting
-      ? index >= range.min && index <= range.max && L.cellText[index] !== ""
-      : false,
-    active: !selecting && activeCells.has(index),
-  }));
+  const activeRow =
+    activeCells.size > 0 ? Math.floor(Math.min(...activeCells) / c) : -1;
+  const dimRows = focusMode.value && !selecting && activeRow >= 0;
+
+  return Array.from({ length: L.rows * c }, (_, index) => {
+    const row = Math.floor(index / c);
+    return {
+      row,
+      col: index % c,
+      value: L.cellText[index] ?? "",
+      selected: selecting
+        ? index >= range.min && index <= range.max && L.cellText[index] !== ""
+        : false,
+      active: !selecting && activeCells.has(index),
+      dim: dimRows && row !== activeRow,
+    };
+  });
 });
+
+const activeCellIndex = computed(() => currentCell());
+
+watch(
+  activeCellIndex,
+  (idx) => {
+    const c = cols.value;
+    emit("caretmove", {
+      x: (idx % c) * colSize + colSize / 2,
+      y: Math.floor(idx / c) * rowSize + rowSize / 2,
+    });
+  },
+  { flush: "post", immediate: true },
+);
 
 onMounted(() => {
   inputRef.value?.focus();
@@ -321,9 +337,9 @@ onUnmounted(() => {
 
 <template>
   <div class="flex w-full flex-col gap-2">
-    <div class="relative w-full" @mouseleave="hoveredCell = null">
+    <div class="relative w-full">
       <svg
-        class="block h-auto w-full"
+        class="block"
         :width="width"
         :height="height"
         :viewBox="`0 0 ${width} ${height}`"
@@ -337,28 +353,12 @@ onUnmounted(() => {
           v-for="cell in cells"
           :key="`${cell.row}:${cell.col}`"
           :cell="cell"
-          :cell-size="cellSize"
+          :col-size="colSize"
+          :row-size="rowSize"
           @cellmousedown="onCellMouseDown"
           @cellmouseenter="onCellMouseEnter"
         />
-
-        <rect
-          class="grid-frame"
-          x="0"
-          y="0"
-          :width="width"
-          :height="height"
-          fill="none"
-          stroke-width="1.5"
-          vector-effect="non-scaling-stroke"
-        />
       </svg>
-
-      <div
-        class="cell-glow"
-        :class="{ 'cell-glow--on': hoveredCell !== null }"
-        :style="glowStyle"
-      />
 
       <textarea
         ref="inputEl"
@@ -378,41 +378,3 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.grid-frame {
-  stroke: var(--border);
-}
-
-.cell-glow {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 28%;
-  border: 2px solid var(--cell-glow);
-  box-shadow:
-    0 0 7px 1px var(--cell-glow-halo),
-    inset 0 0 4px var(--cell-glow-halo);
-  opacity: 0;
-  scale: 1;
-  transition:
-    left 0.12s ease,
-    top 0.12s ease,
-    width 0.12s ease,
-    height 0.12s ease,
-    opacity 0.3s cubic-bezier(0.51, 0.61, 0, 2.3),
-    scale 0.3s cubic-bezier(0.51, 0.61, 0, 2.3);
-}
-
-.cell-glow--on {
-  opacity: 1;
-  scale: 1.1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cell-glow {
-    transition:
-      opacity 0.15s ease,
-      scale 0.15s ease;
-  }
-}
-</style>
