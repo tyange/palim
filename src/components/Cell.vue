@@ -16,9 +16,7 @@ const emit = defineEmits<{
 const x = computed(() => props.cell.col * props.colSize);
 const y = computed(() => props.cell.row * props.rowSize);
 
-const glyphBox = computed(() =>
-  Math.min(props.rowSize - 4, props.colSize * 1.3),
-);
+const glyphBox = computed(() => Math.min(props.colSize, props.rowSize) - 4);
 const boxX = computed(() => x.value + (props.colSize - glyphBox.value) / 2);
 const boxY = computed(() => y.value + (props.rowSize - glyphBox.value) / 2);
 const radius = computed(() => glyphBox.value * 0.32);

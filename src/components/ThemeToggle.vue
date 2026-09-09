@@ -17,7 +17,7 @@ function toggle() {
 <template>
   <button
     type="button"
-    class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-foreground transition-colors hover:bg-surface-2"
+    class="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:text-foreground"
     :aria-label="isDark ? '라이트 모드로 전환' : '다크 모드로 전환'"
     :title="isDark ? '라이트 모드' : '다크 모드'"
     @click="toggle"
