@@ -67,7 +67,7 @@ text(string) + mode            stores/manuscript.ts
 
 ## 컴포넌트 지도
 
-데이터 흐름: `App → EditorView(전체 화면 셸) → (모드별 편집) + 크롬(레일·명령 바) +
+데이터 흐름: `App → EditorView(전체 화면 셸) → (모드별 편집) + 크롬(하단 명령 바) +
 오버레이(팔레트·미리보기)`. 모두 같은 스토어 구독.
 
 | 파일 | 책임 / 알아둘 점 |
@@ -81,7 +81,6 @@ text(string) + mode            stores/manuscript.ts
 | `components/GridPreview.vue` | 격자 모드 출력. `gridLayout`을 격자선 없이 칸 중앙에 그린 깔끔한 SVG + export |
 | `components/FlowEditor.vue` | 흐름 모드 편집. 투명 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) + `caretmove`(줄 번호) emit |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
-| `components/OutlineRail.vue` | 좌측 상주 아웃라인. Reka `Listbox` — 화살표 이동, 선택 시 `jump` |
 | `components/CommandBar.vue` | 하단 중앙 플로팅 알약. Reka `Toolbar` — 격자/흐름 `ToolbarToggleGroup` + ⌘K + 테마 버튼(+`Tooltip`). 옛 ModeToggle·PaneToggle·ThemeToggle 흡수 |
 | `components/CommandPalette.vue` | ⌘K 팔레트. Reka `Dialog` + `Listbox`/`ListboxFilter`. 필터는 수동, 선택 watch → 실행 |
 | `components/PreviewOverlay.vue` | ⌘↵ 미리보기. Reka `Dialog`로 `GridPreview`/`FlowPreview` 래핑 |

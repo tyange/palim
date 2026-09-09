@@ -127,7 +127,6 @@ IME·캐럿·공백은 textarea가 native로 처리하므로 격자의 숨은 te
 - `EditorView.vue` — **전체 화면 몰입 셸**. 모드 분기(`GridEditor`/`FlowEditor`), 크롬
   숨김, 타자기 스크롤, ⌘K/⌘↵ 키를 담당한다. 미리보기는 좌우 분할이 아니라
   `PreviewOverlay`로 겹쳐 본다. 자세한 내용은 `editor-shell.md`.
-- `OutlineRail.vue` — 좌측 상주 아웃라인 레일(소스 줄 목록, 클릭 시 해당 줄로 스크롤).
 - `CommandBar.vue` — 하단 중앙 플로팅 알약(격자/흐름 세그먼트 + ⌘K + `ThemeToggle`).
   옛 `ModeToggle.vue`·`PaneToggle.vue`를 흡수하고 두 파일은 삭제됐다.
 - `CommandPalette.vue` — ⌘K 명령 팔레트(모드·미리보기·포커스·타자기·테마).

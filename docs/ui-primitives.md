@@ -20,7 +20,6 @@ Palim의 **셸(크롬) UI는 [Reka UI](https://reka-ui.com) headless 프리미�
 | `CommandBar`     | `Toolbar` + `ToolbarToggleGroup`/`ToolbarButton`/`ToolbarSeparator` + `Tooltip` | 하단 pill. 격자/흐름은 `type="single"` 토글그룹. `ToolbarToggleItem`의 button은 부모 스코프 id를 못 받아 스타일에 `:deep(button)`을 쓴다. 옛 `ModeToggle`·`PaneToggle`·`ThemeToggle` 흡수·삭제. |
 | `CommandPalette` | `Dialog` + `Listbox`(`ListboxFilter`/`ListboxContent`/`ListboxItem`)            | ⌘K. 필터는 수동(`query` computed). 선택(`v-model`)을 watch해 해당 명령 실행 후 `picked`를 null로 리셋. `VisuallyHidden`으로 `DialogTitle`/`Description` 제공.                                   |
 | `PreviewOverlay` | `Dialog`(`Portal`/`Overlay`/`Content`/`Title`/`Close`)                          | ⌘↵. 안에 기존 `GridPreview`/`FlowPreview`(export 버튼 포함)를 그대로 담음.                                                                                                                      |
-| `OutlineRail`    | `Listbox`(`ListboxContent`/`ListboxItem`)                                       | 좌측 상주. `v-model`로 현재 줄, `@update:model-value` → `jump` emit.                                                                                                                            |
 | `AppToaster`     | `Toast`(`Provider`/`Root`/`Description`/`Viewport`)                             | `App.vue`에 상주. 내보내기 성공 시 "SVG/PNG로 저장했어요".                                                                                                                                      |
 
 ## 컴포저블

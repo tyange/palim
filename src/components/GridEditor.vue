@@ -163,19 +163,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="relative w-full">
-    <div ref="hostEl" class="w-full" />
+  <div class="w-max">
+    <div ref="hostEl" />
     <span class="rc-readout">{{ rc.row }}:{{ rc.col }}</span>
   </div>
 </template>
 
 <style scoped>
 .rc-readout {
-  position: sticky;
-  bottom: 8px;
-  float: right;
-  margin-right: 12px;
-  padding: 2px 7px;
+  position: fixed;
+  right: 16px;
+  bottom: 58px;
+  z-index: 30;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);

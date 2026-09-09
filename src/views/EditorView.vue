@@ -5,7 +5,6 @@ import CommandBar from "../components/CommandBar.vue";
 import CommandPalette from "../components/CommandPalette.vue";
 import FlowEditor from "../components/FlowEditor.vue";
 import GridEditor from "../components/GridEditor.vue";
-import OutlineRail from "../components/OutlineRail.vue";
 import PreviewOverlay from "../components/PreviewOverlay.vue";
 import { useEditorUiStore } from "../stores/editorUi";
 import { FLOW, GRID, useManuscriptStore } from "../stores/manuscript";
@@ -50,10 +49,6 @@ function onCaretLine(line: number) {
   const m = metrics();
   centerOn(line * m.lineHeight + m.padY);
 }
-function onJump(line: number) {
-  const m = metrics();
-  centerOn(line * m.lineHeight + m.padY);
-}
 
 function onKey(e: KeyboardEvent) {
   const meta = e.metaKey || e.ctrlKey;
@@ -82,12 +77,9 @@ onUnmounted(() => {
     class="fixed inset-0 flex overflow-hidden bg-background text-foreground"
     @pointermove="revealChrome"
   >
-    <OutlineRail @jump="onJump" />
-
     <div ref="stageRef" class="relative min-w-0 flex-1 overflow-auto">
       <div
-        class="w-full pt-[12vh] pb-[45vh] px-[clamp(24px,8vw,160px)]"
-        :class="mode === 'grid' ? '' : 'flex justify-center'"
+        class="flex w-full pt-[12vh] pb-[45vh] px-[clamp(24px,8vw,160px)] [justify-content:safe_center]"
       >
         <GridEditor v-if="mode === 'grid'" @caretmove="onCaretLine" />
         <FlowEditor v-else @caretmove="onCaretLine" />
