@@ -105,7 +105,8 @@ text(string) + mode            stores/manuscript.ts
   `addToHistory:false`).
 - 익스텐션 손조립. 테마 메트릭 = `GRID`. `word-spacing:0.5em`(공백=1칸 근사).
   `.cm-content`를 `flexGrow:0`+`width:max-content`로 shrink-wrap.
-- 격자선·활성 줄 밴드 없음(피드백). 캐럿은 2px accent + glow(시인성). `docs/grid-editor.md`.
+- 격자선·활성 줄 밴드 없음(피드백). 캐럿은 2px accent + glow(시인성). 박스 범위는
+  전체 테두리 대신 `.editor-frame`의 옅은 면 틴트 + 네 모서리 크롭 마크로 알린다. `docs/grid-editor.md`.
 
 ### 미리보기·내보내기
 

@@ -18,6 +18,7 @@ const { text } = storeToRefs(useManuscriptStore());
 
 const hostRef = useTemplateRef<HTMLDivElement>("hostEl");
 const rc = ref({ row: 1, col: 0 });
+const frameH = ref(0);
 
 let view: EditorView | undefined;
 let internal = false;
@@ -63,6 +64,12 @@ function pushToStore() {
   if (!view) return;
   const trimmed = trimRect(view.state.doc.toString());
   if (trimmed !== text.value) text.value = trimmed;
+}
+
+function measureFrame() {
+  if (!view) return;
+  const rows = trimRect(view.state.doc.toString()).split("\n").length;
+  frameH.value = rows * GRID.lineHeight + GRID.padY * 2 + 12;
 }
 
 function repad() {
@@ -124,6 +131,7 @@ function onUpdate(u: ViewUpdate) {
     pushToStore();
     scheduleRepad();
   }
+  if (u.docChanged) measureFrame();
   if (u.docChanged || u.selectionSet) reportCursor(u.state);
 }
 
@@ -153,6 +161,7 @@ onMounted(() => {
   });
   view.focus();
   reportCursor(view.state);
+  measureFrame();
 });
 
 onBeforeUnmount(() => {
@@ -163,13 +172,52 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="w-max">
+  <div
+    class="editor-frame"
+    :style="frameH ? { height: `${frameH}px` } : undefined"
+  >
     <div ref="hostEl" />
     <span class="rc-readout">{{ rc.row }}:{{ rc.col }}</span>
   </div>
 </template>
 
 <style scoped>
+.editor-frame {
+  width: max-content;
+  padding: 12px;
+  --mark: color-mix(in srgb, var(--foreground) 28%, transparent);
+  --mark-len: 14px;
+  background-color: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+  background-image:
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark)),
+    linear-gradient(var(--mark), var(--mark));
+  background-repeat: no-repeat;
+  background-position:
+    0 0,
+    0 0,
+    100% 0,
+    100% 0,
+    0 100%,
+    0 100%,
+    100% 100%,
+    100% 100%;
+  background-size:
+    var(--mark-len) 1px,
+    1px var(--mark-len),
+    var(--mark-len) 1px,
+    1px var(--mark-len),
+    var(--mark-len) 1px,
+    1px var(--mark-len),
+    var(--mark-len) 1px,
+    1px var(--mark-len);
+}
+
 .rc-readout {
   position: fixed;
   right: 16px;

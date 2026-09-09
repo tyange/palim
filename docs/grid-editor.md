@@ -67,6 +67,27 @@ CJK/한국어 IME를 제대로 처리하고 undo/redo·선택·클립보드가 �
   `border-left: 2px solid var(--accent)` + `box-shadow: 0 0 6px accent/70%`로 그린다.
 - 선택 배경 = `color-mix(--accent 22%)`. **활성 줄 밴드는 없다**(피드백으로 제거).
 
+## 에디터 프레임 (`.editor-frame`)
+
+에디터 박스는 `repad`로 계속 자라므로 유저가 그 범위를 인지하기 어렵다. 전체 테두리
+선은 "촌스럽다"는 피드백 → 대신 두 가지 은근한 신호를 겹친다(둘 다 선이 아님):
+
+- **면 틴트**: 배경을 `color-mix(--foreground 2.5%, transparent)`로 아주 옅게 깔아
+  "작업면"을 페이지와 분리.
+- **크롭 마크**: 네 모서리에 L자 틱(가로·세로 각 14px, `color-mix(--foreground 28%)`).
+  `linear-gradient` 8겹을 `background-position` `0 0`·`100% 0`·`0 100%`·`100% 100%`에
+  `no-repeat`로 놓아 그린다. 위치가 `%`라 박스가 커지면 마크도 모서리에 붙어 따라간다.
+
+`.editor-frame`은 `width: max-content` + `padding: 12px`로 CM6 콘텐츠를 감싼다. 색은
+전부 `--foreground` 토큰 파생이라 라이트/다크가 자동 대응.
+
+**높이는 패딩된 직사각형 전체가 아니라 마지막 내용 줄까지만.** `padRect`가 아래에
+붙이는 `MARGIN_ROWS`(12)개 빈 줄까지 틴트·마크로 감싸면 세로로 너무 넓다. 그래서
+`frameH = trimRect(doc) 줄 수 * GRID.lineHeight + GRID.padY*2 + 12`(마지막 줄 아래
+약 16px 여백)를 `docChanged`마다 재측정해 `.editor-frame`에 인라인 `height`로 건다.
+`box-sizing: border-box` + `overflow: visible`이라 CM6 호스트(직사각형 전체 높이)는
+프레임 아래로 그냥 넘쳐 흐르고 클릭·방향키도 그대로 — 프레임은 순수 시각 장식이다.
+
 ## 순수 함수 (`src/core/rect.ts` + 테스트)
 
 - `trimRect(s)` — 줄 끝 공백·탭 제거, 끝의 빈 줄 제거(최소 1줄 유지).
