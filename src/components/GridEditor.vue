@@ -311,6 +311,13 @@ const cells = computed<DisplayCell[]>(() => {
   });
 });
 
+function syncInputValue() {
+  const el = inputRef.value;
+  if (el && el.value !== text.value) el.value = text.value;
+}
+
+watch(text, syncInputValue);
+
 const activeCellIndex = computed(() => currentCell());
 
 watch(
@@ -326,6 +333,7 @@ watch(
 );
 
 onMounted(() => {
+  syncInputValue();
   inputRef.value?.focus();
   window.addEventListener("mouseup", endDrag);
 });

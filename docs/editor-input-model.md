@@ -16,6 +16,11 @@ SVG 격자는 편집 가능 요소가 아니라 **IME 조합을 직접 받을 �
 - textarea라서 Enter로 줄바꿈(`\n`)을 입력할 수 있다.
 - 셀을 클릭하면 `moveCaretToCellIndex`가 이 textarea에 `focus()` + `setSelectionRange`로
   캐럿을 옮긴다.
+- **불변식: `textarea.value === text`.** `caretIndex`가 `selectionStart`와 같은 좌표계
+  이려면 textarea가 본문을 그대로 담고 있어야 한다. `syncInputValue()`가 `onMounted`
+  시점과 `text` 변경 시(값이 다를 때만) 채운다. 이게 없으면 빈 textarea에
+  `setSelectionRange(pos)`가 0으로 클램프돼, 기존 글자를 클릭·방향키로 짚는 순간 캐럿이
+  맨 앞으로 튀고 첫 입력이 본문을 덮어쓴다(격자 모드 도입 이래 잠복해 있던 버그).
 - **v-model 금지.** v-model은 IME 조합 중 `input` 이벤트를 무시해 조합 중인 글자가
   반영되지 않는다. native `@input`을 직접 받아야 조합 중에도 buffer가 실시간 표시된다.
 
