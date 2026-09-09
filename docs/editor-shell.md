@@ -35,28 +35,35 @@ main.fixed.inset-0.flex               ← 뷰포트 전체, 스크롤 없음
 - **CommandBar**: 완전히 숨지 않는다. 평소 `opacity:.32`의 **희미한 힌트**로 남고,
   `chromeVisible`·hover·`focus-within`일 때 `opacity:1`.
 
+> 셸 컴포넌트는 대부분 **Reka UI** headless 프리미티브로 만든다 — 채택 근거·컴포넌트
+> 매핑·스코프 CSS 함정은 `ui-primitives.md`. 아래는 Palim 특화 동작만 정리한다.
+
 ## OutlineRail
 
 `text`를 `\n`으로 쪼갠 **소스 줄 목록**(격자 모드는 소스 줄 = 격자 행이므로 그대로
-대응). 줄 번호 + 첫 5자 미리보기를 `--muted`로 조용히 나열한다. 클릭하면 `jump`
-이벤트로 줄 인덱스를 올려 보내고 `EditorView`가 그 줄을 무대 중앙으로 스크롤한다.
+대응). Reka `Listbox`로 렌더 — 줄 번호 + 첫 5자 미리보기를 `--muted`로 조용히 나열,
+화살표로 이동, 선택 시 `jump` 이벤트로 줄 인덱스를 올려 보내고 `EditorView`가 그 줄을
+무대 중앙으로 스크롤한다.
 
 ## CommandBar
 
-하단 중앙 알약. 격자/흐름 세그먼트 토글 + `⌘K`(팔레트 열기) + `ThemeToggle`.
-이전의 `ModeToggle.vue`·`PaneToggle.vue`는 이 바로 흡수되어 삭제됐다.
+하단 중앙 알약. Reka `Toolbar` — 격자/흐름 `ToolbarToggleGroup`(`type="single"`) +
+`⌘K`(팔레트 열기) `ToolbarButton` + 테마 `ToolbarButton`(`Tooltip` 부착). 이전의
+`ModeToggle.vue`·`PaneToggle.vue`·`ThemeToggle.vue`는 이 바로 흡수되어 삭제됐다(테마
+로직은 `useTheme` 컴포저블로).
 
 ## CommandPalette (⌘K)
 
-`useEditorUiStore`의 `paletteOpen`으로 여닫는 모달. 명령 목록을 입력으로 필터하고
-`↑`/`↓`·`Enter`로 실행, `Esc`로 닫는다. 명령: 모드 전환 / 미리보기(⌘↵) / 포커스 모드
-/ 타자기 모드 / 라이트·다크. 내보내기는 미리보기 오버레이 안에 있다.
+`paletteOpen`으로 여닫는 Reka `Dialog` + `Listbox`. `ListboxFilter`가 검색 입력,
+필터링은 수동(`query` computed). 선택(`v-model`)을 watch해 해당 명령 실행 후 리셋.
+포커스 트랩·`Esc`·스크롤 락은 Dialog가 처리. 명령: 모드 전환 / 미리보기(⌘↵) / 포커스
+모드 / 타자기 모드 / 라이트·다크. 내보내기는 미리보기 오버레이 안에 있다.
 
 ## PreviewOverlay (⌘↵)
 
-`previewOpen`으로 여닫는 전체 화면 오버레이. 모드에 따라 기존 `GridPreview.vue` /
-`FlowPreview.vue`(라벨·PNG/SVG 저장 버튼 포함)를 그대로 담는다. 이전의 좌우 분할·
-`PaneToggle` 대신 **명시적으로 불러 겹쳐 보는** 방식.
+`previewOpen`으로 여닫는 Reka `Dialog`. 모드에 따라 기존 `GridPreview.vue` /
+`FlowPreview.vue`(라벨·PNG/SVG 저장 버튼 포함)를 그대로 담는다. 좌우 분할·`PaneToggle`
+대신 **명시적으로 불러 겹쳐 보는** 방식. 저장 성공 시 `AppToaster`(Reka `Toast`)로 알림.
 
 ## 두 몰입 모드
 

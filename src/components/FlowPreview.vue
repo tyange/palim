@@ -2,7 +2,10 @@
 import { storeToRefs } from "pinia";
 import { computed, ref, useTemplateRef, watch } from "vue";
 import { exportPng, exportSvgElement } from "../composables/useExport";
+import { useToast } from "../composables/useToast";
 import { FLOW, useManuscriptStore } from "../stores/manuscript";
+
+const { addToast } = useToast();
 
 const { width, fontSize, lineHeight, padX, padY } = FLOW;
 const fontFamily = '"Noto Serif KR", serif';
@@ -54,11 +57,13 @@ const height = computed(
 const svgRef = useTemplateRef<SVGSVGElement>("svgEl");
 
 function onExportSvg() {
-  if (svgRef.value) exportSvgElement(svgRef.value, "palim-flow.svg");
+  if (!svgRef.value) return;
+  exportSvgElement(svgRef.value, "palim-flow.svg");
+  addToast("SVG로 저장했어요");
 }
 
-function onExportPng() {
-  exportPng({
+async function onExportPng() {
+  await exportPng({
     width,
     height: height.value,
     filename: "palim-flow.png",
@@ -72,11 +77,15 @@ function onExportPng() {
       });
     },
   });
+  addToast("PNG로 저장했어요");
 }
 </script>
 
 <template>
-  <div class="flex min-w-0 max-w-full flex-col gap-2" :style="{ width: `${width}px` }">
+  <div
+    class="flex min-w-0 max-w-full flex-col gap-2"
+    :style="{ width: `${width}px` }"
+  >
     <div class="flex h-[30px] items-center justify-between gap-2">
       <span class="text-sm text-muted">미리보기</span>
       <div class="flex items-center gap-2">
@@ -120,7 +129,9 @@ function onExportPng() {
         dominant-baseline="hanging"
         style="white-space: pre"
         xml:space="preserve"
-      >{{ line }}</text>
+      >
+        {{ line }}
+      </text>
     </svg>
   </div>
 </template>

@@ -1,7 +1,20 @@
 <script setup lang="ts">
-import { useColorMode, usePreferredDark } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, ref, watch } from "vue";
+import {
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  ListboxContent,
+  ListboxFilter,
+  ListboxItem,
+  ListboxRoot,
+  VisuallyHidden,
+} from "reka-ui";
+import { computed, ref, watch } from "vue";
+import { useTheme } from "../composables/useTheme";
 import { useEditorUiStore } from "../stores/editorUi";
 import { useManuscriptStore } from "../stores/manuscript";
 
@@ -12,20 +25,13 @@ interface Command {
   run: () => void;
 }
 
-const manuscript = useManuscriptStore();
-const { mode } = storeToRefs(manuscript);
+const { mode } = storeToRefs(useManuscriptStore());
 const ui = useEditorUiStore();
 const { paletteOpen, focusMode, typewriter, previewOpen } = storeToRefs(ui);
-
-const colorMode = useColorMode();
-const prefersDark = usePreferredDark();
-const isDark = computed(() =>
-  colorMode.value === "auto" ? prefersDark.value : colorMode.value === "dark",
-);
+const { isDark, toggle: toggleTheme } = useTheme();
 
 const query = ref("");
-const cursor = ref(0);
-const inputRef = ref<HTMLInputElement | null>(null);
+const picked = ref<string | null>(null);
 
 const commands = computed<Command[]>(() => [
   {
@@ -52,7 +58,7 @@ const commands = computed<Command[]>(() => [
   {
     id: "theme",
     label: isDark.value ? "라이트 모드" : "다크 모드",
-    run: () => (colorMode.value = isDark.value ? "light" : "dark"),
+    run: toggleTheme,
   },
 ]);
 
@@ -65,63 +71,53 @@ const filtered = computed(() => {
 watch(paletteOpen, (open) => {
   if (open) {
     query.value = "";
-    cursor.value = 0;
-    nextTick(() => inputRef.value?.focus());
+    picked.value = null;
   }
 });
-watch(filtered, () => {
-  cursor.value = 0;
-});
 
-function runAt(i: number) {
-  const cmd = filtered.value[i];
-  if (!cmd) return;
-  cmd.run();
+watch(picked, (id) => {
+  if (!id) return;
+  const cmd = commands.value.find((c) => c.id === id);
+  picked.value = null;
   paletteOpen.value = false;
-}
-
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    cursor.value = (cursor.value + 1) % Math.max(1, filtered.value.length);
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    cursor.value =
-      (cursor.value - 1 + filtered.value.length) %
-      Math.max(1, filtered.value.length);
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    runAt(cursor.value);
-  }
-}
+  cmd?.run();
+});
 </script>
 
 <template>
-  <div v-if="paletteOpen" class="palette-scrim" @click="paletteOpen = false">
-    <div class="palette" role="dialog" aria-label="명령 팔레트" @click.stop>
-      <input
-        ref="inputRef"
-        v-model="query"
-        class="palette-input"
-        type="text"
-        placeholder="명령 검색…"
-        @keydown="onKeydown"
-      />
-      <ul class="palette-list">
-        <li
-          v-for="(cmd, i) in filtered"
-          :key="cmd.id"
-          :class="{ on: i === cursor }"
-          @mouseenter="cursor = i"
-          @click="runAt(i)"
-        >
-          <span>{{ cmd.label }}</span>
-          <kbd v-if="cmd.hint">{{ cmd.hint }}</kbd>
-        </li>
-        <li v-if="filtered.length === 0" class="empty">일치하는 명령 없음</li>
-      </ul>
-    </div>
-  </div>
+  <DialogRoot v-model:open="paletteOpen">
+    <DialogPortal>
+      <DialogOverlay class="palette-scrim" />
+      <DialogContent class="palette">
+        <VisuallyHidden>
+          <DialogTitle>명령 팔레트</DialogTitle>
+          <DialogDescription>명령을 검색해 실행합니다</DialogDescription>
+        </VisuallyHidden>
+        <ListboxRoot v-model="picked" class="palette-listbox">
+          <ListboxFilter
+            v-model="query"
+            class="palette-input"
+            placeholder="명령 검색…"
+            auto-focus
+          />
+          <ListboxContent class="palette-list">
+            <ListboxItem
+              v-for="cmd in filtered"
+              :key="cmd.id"
+              :value="cmd.id"
+              class="palette-item"
+            >
+              <span>{{ cmd.label }}</span>
+              <kbd v-if="cmd.hint">{{ cmd.hint }}</kbd>
+            </ListboxItem>
+            <p v-if="filtered.length === 0" class="palette-empty">
+              일치하는 명령 없음
+            </p>
+          </ListboxContent>
+        </ListboxRoot>
+      </DialogContent>
+    </DialogPortal>
+  </DialogRoot>
 </template>
 
 <style scoped>
@@ -129,19 +125,26 @@ function onKeydown(e: KeyboardEvent) {
   position: fixed;
   inset: 0;
   z-index: 60;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 18vh;
   background: rgba(0, 0, 0, 0.28);
 }
+.palette-scrim[data-state="open"] {
+  animation: fade-in 0.14s ease;
+}
 .palette {
+  position: fixed;
+  top: 18vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 61;
   width: min(440px, 92vw);
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
   overflow: hidden;
+}
+.palette[data-state="open"] {
+  animation: fade-in 0.14s ease;
 }
 .palette-input {
   width: 100%;
@@ -161,7 +164,7 @@ function onKeydown(e: KeyboardEvent) {
   max-height: 46vh;
   overflow-y: auto;
 }
-.palette-list li {
+.palette-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -170,16 +173,18 @@ function onKeydown(e: KeyboardEvent) {
   font-size: 14px;
   color: var(--foreground);
   cursor: pointer;
+  outline: none;
 }
-.palette-list li.on {
+.palette-item[data-highlighted] {
   background: var(--surface-2);
 }
-.palette-list li.empty {
+.palette-empty {
+  margin: 0;
+  padding: 9px 12px;
+  font-size: 14px;
   color: var(--muted);
-  cursor: default;
-  justify-content: flex-start;
 }
-.palette-list kbd {
+.palette-item kbd {
   font-family: var(--font-manuscript);
   font-size: 11px;
   padding: 1px 6px;
@@ -187,5 +192,10 @@ function onKeydown(e: KeyboardEvent) {
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--muted);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 </style>

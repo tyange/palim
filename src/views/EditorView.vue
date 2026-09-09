@@ -64,9 +64,6 @@ function onKey(e: KeyboardEvent) {
   } else if (meta && e.key === "Enter") {
     e.preventDefault();
     previewOpen.value = !previewOpen.value;
-  } else if (e.key === "Escape") {
-    if (paletteOpen.value) paletteOpen.value = false;
-    else if (previewOpen.value) previewOpen.value = false;
   }
 }
 

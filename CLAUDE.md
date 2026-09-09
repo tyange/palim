@@ -22,6 +22,9 @@
 
 - **런타임/패키지 매니저: Bun** (npm/yarn/pnpm 아님). 항상 `bun`을 쓴다.
 - Vue 3 (`<script setup>`) · TypeScript · Vite · Tailwind v4 · Pinia
+- **셸 UI는 [Reka UI](https://reka-ui.com) headless 프리미티브** (Dialog/Listbox/Toolbar/
+  Tooltip/Toast). 스타일은 토큰으로 직접. 근거·규칙·함정은 `docs/ui-primitives.md`.
+  편집면(격자/흐름)은 Reka 무관 자체 구현.
 - 포매터 **oxfmt**, 린터 **oxlint** (ESLint/Prettier 아님). VSCode는 `oxc.oxc-vscode` 권장.
 - 테스트 **Vitest** (Vite 설정 공유). 테스트는 대상 옆에 `*.test.ts`로 co-locate.
 
@@ -74,13 +77,15 @@ text(string) + mode            stores/manuscript.ts
 | `components/FlowEditor.vue` | 흐름 모드 편집. 투명 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) + `caretmove`(줄 번호) emit |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
 | `components/Cell.vue` | 칸 1개를 SVG `<g>`로. rect(투명 히트)/selected/caret(채운 소프트 스퀴클, 맥동)/text. `dim`이면 감광. mousedown·enter emit |
-| `components/OutlineRail.vue` | 좌측 상주 아웃라인(소스 줄 목록). 클릭 시 `jump`로 해당 줄 스크롤 |
-| `components/CommandBar.vue` | 하단 중앙 플로팅 알약. 격자/흐름 세그먼트 + ⌘K + `ThemeToggle`. (옛 ModeToggle·PaneToggle 흡수) |
-| `components/CommandPalette.vue` | ⌘K 명령 팔레트(모드·미리보기·포커스·타자기·테마). `↑↓`·Enter·Esc |
-| `components/PreviewOverlay.vue` | ⌘↵ 전체 화면 미리보기(`GridPreview`/`FlowPreview` 래핑) |
-| `components/ThemeToggle.vue` | `useColorMode`(auto/light/dark) — `<html>.dark` 클래스 토글 |
-| `views/EditorView.vue` | **전체 화면 몰입 셸.** 모드 분기, 크롬 숨김, 타자기 스크롤, ⌘K/⌘↵/Esc 키. `docs/editor-shell.md` |
+| `components/OutlineRail.vue` | 좌측 상주 아웃라인. Reka `Listbox` — 화살표 이동, 선택 시 `jump` |
+| `components/CommandBar.vue` | 하단 중앙 플로팅 알약. Reka `Toolbar` — 격자/흐름 `ToolbarToggleGroup` + ⌘K + 테마 버튼(+`Tooltip`). 옛 ModeToggle·PaneToggle·ThemeToggle 흡수 |
+| `components/CommandPalette.vue` | ⌘K 팔레트. Reka `Dialog` + `Listbox`/`ListboxFilter`. 필터는 수동, 선택 watch → 실행 |
+| `components/PreviewOverlay.vue` | ⌘↵ 미리보기. Reka `Dialog`로 `GridPreview`/`FlowPreview` 래핑 |
+| `components/AppToaster.vue` | Reka `Toast`. `App.vue` 상주. 내보내기 성공 토스트 |
+| `views/EditorView.vue` | **전체 화면 몰입 셸.** 모드 분기, 크롬 숨김, 타자기 스크롤, ⌘K/⌘↵ 키(Esc는 Dialog가 처리). `docs/editor-shell.md` |
 | `composables/useExport.ts` | SVG 직렬화 저장 + PNG(canvas `fillText`, 3배 스케일) 공통 헬퍼 |
+| `composables/useTheme.ts` | `useColorMode` 래핑(`isDark`·`toggle`). CommandBar/Palette 공용 |
+| `composables/useToast.ts` | 모듈 스코프 `toasts` 큐 + `addToast`/`dismiss` |
 
 ### GridEditor.vue — 입력·캐럿 모델 (수정 전 필독)
 
@@ -117,7 +122,7 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - `docs/editor-shell.md` — 전체 화면 몰입 셸·크롬 숨김·아웃라인·⌘K 팔레트·미리보기·포커스/타자기
 - `docs/rendering-and-export.md` — 격자/흐름 렌더링·스타일 토큰·SVG/PNG 내보내기
 - `docs/korean-ime-bug.md` — 한국어 IME 조합 중 자모 탈락 버그 분석
-- `docs/TODO-daisyui.md` — daisyUI 도입 보류 결정
+- `docs/ui-primitives.md` — 셸 UI의 Reka UI headless 프리미티브 채택·규칙·스코프 CSS 함정
 - `docs/TODO-e2e-testing.md` — e2e 보류 결정 + 한글 IME 재현 가능 러너 조사(Playwright+CDP)
 
 ## 컨벤션
@@ -130,7 +135,7 @@ SVG 격자는 IME 조합을 받을 수 없으므로, **화면 밖 1px 투명 tex
 - **코드 주석은 두지 않는다.** "왜"에 해당하는 지식은 코드가 아니라 `docs/`에 주제별 문서로
   둔다(위 "참고 문서"). 새 동작·결정도 인라인 주석 대신 해당 문서를 갱신한다.
 - 문자열 **쌍따옴표**, `printWidth: 80`(oxfmt). 커밋은 한국어 + Conventional Commits(`feat:`/`fix:`/`style:`/`ci:`…).
-- daisyUI는 테마 충돌 우려로 **보류**. 검토 시 `docs/TODO-daisyui.md` 참고.
+- 셸 UI는 **Reka UI**(headless). 스타일은 토큰으로만, Reka `data-*`를 상태 훅으로. `docs/ui-primitives.md`.
 
 ## 검증
 

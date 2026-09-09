@@ -1,35 +1,42 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import {
+  DialogClose,
+  DialogContent,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+} from "reka-ui";
 import { useEditorUiStore } from "../stores/editorUi";
 import { useManuscriptStore } from "../stores/manuscript";
 import FlowPreview from "./FlowPreview.vue";
 import GridPreview from "./GridPreview.vue";
 
 const { mode } = storeToRefs(useManuscriptStore());
-const ui = useEditorUiStore();
-const { previewOpen } = storeToRefs(ui);
+const { previewOpen } = storeToRefs(useEditorUiStore());
 </script>
 
 <template>
-  <div v-if="previewOpen" class="preview-scrim" @click="previewOpen = false">
-    <div class="preview-panel" role="dialog" aria-label="미리보기" @click.stop>
-      <div class="preview-head">
-        <span>미리보기 · {{ mode === "grid" ? "격자" : "흐름" }}</span>
-        <button
-          type="button"
-          class="preview-close"
-          aria-label="미리보기 닫기"
-          @click="previewOpen = false"
-        >
-          ✕
-        </button>
-      </div>
-      <div class="preview-body">
-        <GridPreview v-if="mode === 'grid'" />
-        <FlowPreview v-else />
-      </div>
-    </div>
-  </div>
+  <DialogRoot v-model:open="previewOpen">
+    <DialogPortal>
+      <DialogOverlay class="preview-scrim" />
+      <DialogContent class="preview-panel">
+        <div class="preview-head">
+          <DialogTitle class="preview-title">
+            미리보기 · {{ mode === "grid" ? "격자" : "흐름" }}
+          </DialogTitle>
+          <DialogClose class="preview-close" aria-label="미리보기 닫기">
+            ✕
+          </DialogClose>
+        </div>
+        <div class="preview-body">
+          <GridPreview v-if="mode === 'grid'" />
+          <FlowPreview v-else />
+        </div>
+      </DialogContent>
+    </DialogPortal>
+  </DialogRoot>
 </template>
 
 <style scoped>
@@ -37,16 +44,20 @@ const { previewOpen } = storeToRefs(ui);
   position: fixed;
   inset: 0;
   z-index: 50;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 4vh 4vw;
   background: rgba(0, 0, 0, 0.4);
 }
+.preview-scrim[data-state="open"] {
+  animation: fade-in 0.16s ease;
+}
 .preview-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 51;
   display: flex;
   flex-direction: column;
-  width: min(920px, 100%);
+  width: min(920px, calc(100vw - 8vw));
   max-height: 92vh;
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -54,13 +65,20 @@ const { previewOpen } = storeToRefs(ui);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
 }
+.preview-panel[data-state="open"] {
+  animation: fade-in 0.16s ease;
+}
 .preview-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
+}
+.preview-title {
+  margin: 0;
   font-size: 13px;
+  font-weight: 400;
   color: var(--muted);
 }
 .preview-close {
@@ -79,5 +97,10 @@ const { previewOpen } = storeToRefs(ui);
 .preview-body {
   padding: 20px;
   overflow: auto;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 </style>

@@ -2,7 +2,10 @@
 import { storeToRefs } from "pinia";
 import { computed, ref, useTemplateRef } from "vue";
 import { exportPng, exportSvgElement } from "../composables/useExport";
+import { useToast } from "../composables/useToast";
 import { FLOW, useManuscriptStore } from "../stores/manuscript";
+
+const { addToast } = useToast();
 
 const fontSize = FLOW.fontSize;
 const advanceY = FLOW.lineHeight;
@@ -59,12 +62,14 @@ const content = computed(() => {
 const svgRef = useTemplateRef<SVGSVGElement>("svgEl");
 
 function onExportSvg() {
-  if (svgRef.value) exportSvgElement(svgRef.value, "palim-grid.svg");
+  if (!svgRef.value) return;
+  exportSvgElement(svgRef.value, "palim-grid.svg");
+  addToast("SVG로 저장했어요");
 }
 
-function onExportPng() {
+async function onExportPng() {
   const { glyphs, width, height } = content.value;
-  exportPng({
+  await exportPng({
     width,
     height,
     filename: "palim-grid.png",
@@ -77,6 +82,7 @@ function onExportPng() {
       for (const g of glyphs) ctx.fillText(g.char, g.cx, g.cy);
     },
   });
+  addToast("PNG로 저장했어요");
 }
 </script>
 
@@ -116,7 +122,13 @@ function onExportPng() {
         aria-label="격자 미리보기"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <rect x="0" y="0" :width="content.width" :height="content.height" fill="#ffffff" />
+        <rect
+          x="0"
+          y="0"
+          :width="content.width"
+          :height="content.height"
+          fill="#ffffff"
+        />
         <text
           v-for="(g, i) in content.glyphs"
           :key="i"
@@ -127,7 +139,9 @@ function onExportPng() {
           :font-size="fontSize"
           dominant-baseline="central"
           text-anchor="middle"
-        >{{ g.char }}</text>
+        >
+          {{ g.char }}
+        </text>
       </svg>
     </div>
   </div>
