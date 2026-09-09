@@ -1,7 +1,7 @@
 # 에디터 셸 — 전체 화면·크롬 숨김·아웃라인·명령 팔레트·미리보기
 
-> **⚠️ 2026-09-09 리셋**: 격자 편집 표면이 SVG 격자 + 숨은 textarea + 가상 캐럿 →
-> 표준 `<textarea>`(고정폭 폰트 + `word-spacing`)로 바뀌었다. 1세대 코드는
+> **⚠️ 2026-09-09 리셋**: 격자 편집 표면이 SVG 격자 + 가상 캐럿 → (잠깐) 순수 `<textarea>`
+> → **CodeMirror 6**(`docs/grid-editor.md`)로 바뀌었다. 1세대 SVG 코드는
 > `archive/svg-grid-editor/`. 이 문서의 SVG 격자·칸 클릭 배치·`virtualCell` 관련 서술은
 > **갱신 대기**(현재 코드와 어긋남).
 

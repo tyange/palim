@@ -28,7 +28,7 @@ function revealChrome() {
 function centerOn(innerY: number, smooth = true) {
   const el = stageRef.value;
   if (!el) return;
-  const surface = el.querySelector("textarea");
+  const surface = el.querySelector("textarea, .cm-editor");
   if (!surface) return;
   const contentY =
     surface.getBoundingClientRect().top -

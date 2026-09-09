@@ -24,7 +24,10 @@
 - Vue 3 (`<script setup>`) · TypeScript · Vite · Tailwind v4 · Pinia
 - **셸 UI는 [Reka UI](https://reka-ui.com) headless 프리미티브** (Dialog/Listbox/Toolbar/
   Tooltip/Toast). 스타일은 토큰으로 직접. 근거·규칙·함정은 `docs/ui-primitives.md`.
-  편집면(격자/흐름)은 Reka 무관 자체 구현.
+  편집면(격자/흐름)은 Reka 무관.
+- **격자 편집 표면은 [CodeMirror 6](https://codemirror.net)** (`@codemirror/state`·
+  `view`·`commands`, `basicSetup` 안 씀). 근거·통합·함정은 `docs/grid-editor.md`.
+  흐름 모드는 plain `<textarea>`.
 - 포매터 **oxfmt**, 린터 **oxlint** (ESLint/Prettier 아님). VSCode는 `oxc.oxc-vscode` 권장.
 - 테스트 **Vitest** (Vite 설정 공유). 테스트는 대상 옆에 `*.test.ts`로 co-locate.
 
@@ -72,7 +75,7 @@ text(string) + mode            stores/manuscript.ts
 | `core/layout.ts` | `flowGraphemes`: 자소 1=1칸 평면 격자 배치 + 자동 cols/rows. 격자 무관 순수 로직 |
 | `stores/manuscript.ts` | 본문 진실원천(`text` ref + `mode` ref + `gridLayout` computed) + `GRID`·`FLOW` 상수 |
 | `stores/editorUi.ts` | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발) |
-| `components/GridEditor.vue` | **격자 모드 편집.** 고정폭(`Nanum Gothic Coding`) `<textarea>` + `white-space:pre` + `word-spacing`(공백=1칸 보정). 캐럿·IME·선택·undo 전부 네이티브. `caretmove`(줄) emit. SVG 격자 1세대는 `archive/svg-grid-editor/` |
+| `components/GridEditor.vue` | **격자 모드 편집.** CodeMirror 6. 테마 메트릭 = `GRID`, `word-spacing`(공백=1칸), `updateListener`↔`text` 동기화(에코 가드), `caretmove`(줄) emit. `docs/grid-editor.md` |
 | `components/GridPreview.vue` | 격자 모드 출력. `gridLayout`을 격자선 없이 칸 중앙에 그린 깔끔한 SVG + export |
 | `components/FlowEditor.vue` | 흐름 모드 편집. 투명 `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장) + `caretmove`(줄 번호) emit |
 | `components/FlowPreview.vue` | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export |
@@ -86,25 +89,23 @@ text(string) + mode            stores/manuscript.ts
 | `composables/useTheme.ts` | `useColorMode` 래핑(`isDark`·`toggle`). CommandBar/Palette 공용 |
 | `composables/useToast.ts` | 모듈 스코프 `toasts` 큐 + `addToast`/`dismiss` |
 
-### GridEditor.vue — 표준 textarea (2026-09-09 리셋)
+### GridEditor.vue — CodeMirror 6
 
-SVG 격자 + 숨은 textarea + 가상 캐럿(`virtualCell`/`materializeCaret`)으로 직접 만든
-1세대 편집 표면은 취약해서(본문 소실·캐럿 튐·IME 자모 탈락) 걷어냈다 →
-`archive/svg-grid-editor/`(코드·`editor-input-model.md`·`korean-ime-bug.md` + 복원법).
+바닥부터 만든 편집 표면이 두 번 벽에 부딪혀(SVG 격자+숨은 textarea+가상 캐럿 →
+`archive/svg-grid-editor/`, 그다음 순수 `<textarea>` `1f4c0a4`) CM6으로 갔다.
+격자 모드 = 모노스페이스 텍스트 버퍼 + 캐럿 = CM6의 `state.doc`(문자열) 모델과 1:1.
+IME·undo/redo·선택·클립보드 내장.
 
-지금은 **그냥 `<textarea>`**다. 브라우저가 캐럿·IME·선택·undo/redo·클립보드를 다 준다.
-
-- `white-space: pre` + `wrap="off"` — 줄바꿈 안 함, 소스 문자열의 2D 배치(공백+줄바꿈)
-  그대로. 긴 줄은 가로 스크롤.
-- `font-family: "Nanum Gothic Coding"`(고정폭). CJK 고정폭 폰트는 공백이 한글의 반칸이라
-  `word-spacing: 0.5em`으로 공백 총폭을 1칸에 맞춘다 → **한글+공백은 1글자=1칸 정렬**.
-  라틴·숫자는 반칸이라 혼용 시 어긋남(데이터는 항상 정확).
-- `caretmove`(현재 줄 번호) emit → `EditorView`의 타자기 스크롤.
-- 포커스 모드(줄 단위 감광)는 textarea로 불가 → 제거.
-- 격자선(시각적 그리드)은 아직 없음.
-
-> **아직 갱신 대기**: `writing-modes.md`(§4 "격자=차별점, 클릭 배치"),
-> `architecture.md`·`rendering-and-export.md`·`editor-shell.md`의 SVG 격자 서술.
+- 익스텐션은 손으로: `history()`, `keymap`(default+history), `drawSelection()`,
+  `updateListener`, `theme`. `basicSetup` 안 씀.
+- **테마 메트릭이 `GRID`(fontSize/lineHeight/padY/padX)와 정확히 일치**해야
+  `EditorView.vue`의 `centerOn`/`onJump` 기하가 그대로 맞는다.
+- `word-spacing: 0.5em` — 공백=1칸 보정. CM6은 실제 DOM을 측정하므로 캐럿 좌표 정확.
+- `text` 동기화: CM6→store는 `updateListener`(`docChanged && !applyingExternal`),
+  store→CM6는 `watch(text)`에서 값 다를 때만 전체 교체 `dispatch`. `applyingExternal`
+  플래그로 에코 차단(dispatch가 동기라 안전).
+- grow + 무대 스크롤(`&{height:auto}` + `.cm-scroller{overflow:visible}`).
+- 자세한 내용은 `docs/grid-editor.md`.
 
 ### 미리보기·내보내기
 
@@ -122,6 +123,7 @@ SVG 격자 + 숨은 textarea + 가상 캐럿(`virtualCell`/`materializeCaret`)�
 - `docs/writing-modes.md` — 두 모드(격자/흐름)의 근거·원고지 규칙을 버린 이유
 - `docs/architecture.md` — 진실원천·파이프라인·코어 엔진(segmentGraphemes/flowGraphemes)
 - `docs/editor-shell.md` — 전체 화면 몰입 셸·크롬 숨김·아웃라인·⌘K 팔레트·미리보기·포커스/타자기
+- `docs/grid-editor.md` — 격자 모드 편집 표면(CodeMirror 6): 채택 근거·통합·`word-spacing`·동기화
 - `docs/rendering-and-export.md` — 격자/흐름 렌더링·스타일 토큰·SVG/PNG 내보내기
 - (아카이브) `archive/svg-grid-editor/` — SVG 격자 편집 표면 1세대 + IME 버그 분석
 - `docs/ui-primitives.md` — 셸 UI의 Reka UI headless 프리미티브 채택·규칙·스코프 CSS 함정
