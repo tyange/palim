@@ -40,7 +40,7 @@ const lines = computed(() =>
   width: 132px;
   height: 100%;
   overflow-y: auto;
-  padding: 16px 0;
+  padding: calc(12vh + 4px) 0 40px;
   opacity: 0;
   transform: translateX(-12px);
   transition:

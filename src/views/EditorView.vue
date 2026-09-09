@@ -89,7 +89,7 @@ onUnmounted(() => {
 
     <div ref="stageRef" class="relative min-w-0 flex-1 overflow-auto">
       <div
-        class="py-[46vh] px-[clamp(24px,8vw,160px)]"
+        class="pt-[12vh] pb-[45vh] px-[clamp(24px,8vw,160px)]"
         :class="
           mode === 'grid' ? 'w-max min-w-full' : 'flex w-full justify-center'
         "
