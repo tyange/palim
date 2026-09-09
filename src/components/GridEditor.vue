@@ -4,11 +4,13 @@ import { EditorState } from "@codemirror/state";
 import {
   drawSelection,
   EditorView,
+  highlightActiveLine,
   keymap,
   type ViewUpdate,
 } from "@codemirror/view";
 import { storeToRefs } from "pinia";
 import { onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
+import { gridLines } from "../editor/gridLines";
 import { GRID, useManuscriptStore } from "../stores/manuscript";
 
 const emit = defineEmits<{ caretmove: [line: number] }>();
@@ -28,6 +30,10 @@ const theme = EditorView.theme({
     lineHeight: `${GRID.lineHeight}px`,
     wordSpacing: "0.5em",
     padding: `${GRID.padY}px ${GRID.padX}px`,
+    width: "max-content",
+    minWidth: "0",
+    flexGrow: "0",
+    flexShrink: "0",
     caretColor: "var(--foreground)",
     color: "var(--foreground)",
   },
@@ -38,6 +44,11 @@ const theme = EditorView.theme({
     {
       background: "color-mix(in srgb, var(--accent) 22%, transparent)",
     },
+  ".cm-grid-layer": { pointerEvents: "none" },
+  ".cm-grid-col, .cm-grid-row": { background: "var(--grid-line)" },
+  ".cm-activeLine": {
+    background: "color-mix(in srgb, var(--foreground) 4%, transparent)",
+  },
 });
 
 function onUpdate(u: ViewUpdate) {
@@ -69,6 +80,8 @@ onMounted(() => {
         history(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         drawSelection(),
+        highlightActiveLine(),
+        gridLines,
         EditorView.updateListener.of(onUpdate),
         theme,
       ],

@@ -11,6 +11,7 @@
   --border: #e4e2dc;
   --cell-bg: transparent;
   --cell-active: rgba(31, 29, 27, 0.09);
+  --grid-line: rgba(31, 29, 27, 0.07);
   --caret: #1f1d1b;
   --accent: #5b61e6;
   --accent-contrast: #ffffff;
@@ -26,6 +27,7 @@
   --border: #2c2c31;
   --cell-bg: transparent;
   --cell-active: rgba(232, 230, 225, 0.14);
+  --grid-line: rgba(232, 230, 225, 0.08);
   --caret: #e8e6e1;
   --accent: #818cf8;
   --accent-contrast: #16161a;

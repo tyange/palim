@@ -52,9 +52,34 @@
   문자열 허용.
 - 마운트: `onMounted`에 `new EditorView({parent, state})` + `view.focus()`.
   `onBeforeUnmount`에 `view.destroy()`.
+- **`.cm-content` shrink-wrap**: CM6 기본이 `.cm-content { flex-grow: 2 }`라 무대 폭
+  전체로 늘어난다(활성 줄 밴드·격자가 1400px+로 뻗음). 테마에서 `flexGrow:0` +
+  `flexShrink:0` + `width:max-content`로 내용 폭에 맞춘다. 넓은 시는 무대가 가로 스크롤.
+
+## 격자선 (`src/editor/gridLines.ts`)
+
+CM6 `layer()` 익스텐션. 세로·가로선을 `RectangleMarker`(1px div)로 그린다.
+
+- **하드코딩 금지 — 실측에서 뽑는다**:
+  - 칸 폭 = 첫 한글 위치의 `coordsAtPos(p)`와 `coordsAtPos(p+1)` x 차 (렌더된 실제
+    advance. `word-spacing` 포함해 정확. 폴백 `defaultCharacterWidth * 2`).
+  - 원점 = `coordsAtPos(0)`를 `scrollDOM` 기준 좌표로 변환(`RectangleMarker`의
+    left/top이 그 좌표계).
+  - 행 높이 = `view.defaultLineHeight`.
+- **재계산**: `layer.update`가 `geometryChanged || docChanged || viewportChanged`에
+  true 반환 → CM6 measure 사이클에서 markers 재생성. 폰트 크기 변경·웹폰트 스왑·줌에
+  전부 따라간다(이게 CSS 하드코딩 그라디언트를 안 쓴 이유).
+- 색: `.cm-grid-col, .cm-grid-row { background: var(--grid-line) }` (라이트/다크 토큰).
+  `.cm-grid-layer { pointer-events: none }`.
+
+활성 줄: `highlightActiveLine()` + `.cm-activeLine { background: color-mix(...
+--foreground 4% ...) }`.
 
 ## 아직 없는 것 (다음 단계)
 
-격자선(시각 그리드), 활성 칸/행 하이라이트, "빈 2D 공간 클릭 → 그 자리에 캐럿"(SVG
-시절 차별점 — CM6에선 `domEventHandlers.mousedown` + `posAtCoords` + `dispatch`로
-공백·줄바꿈 삽입해 복원 가능). 흐름 모드는 계속 plain `<textarea>`(`FlowEditor.vue`).
+- **반각 문자 격자 정렬**: 라틴·숫자는 ½칸이라 순한글 아닌 줄에서 어긋난다. 반각 런에
+  `Decoration.mark` + `letter-spacing`(+ 트레일링 보정)으로 1칸 advance 강제 예정.
+  트레이드오프: `2026`이 `2 0 2 6`처럼 벌어져 보임 → 켤지 말지 옵션.
+- 활성 "칸" 박스(현재 칸 하이라이트), "빈 2D 공간 클릭 → 그 자리 캐럿"(SVG 시절 차별점 —
+  `domEventHandlers.mousedown` + `posAtCoords` + `dispatch`로 공백·줄바꿈 삽입 복원 가능).
+- 흐름 모드는 계속 plain `<textarea>`(`FlowEditor.vue`).
