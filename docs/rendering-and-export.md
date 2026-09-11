@@ -1,9 +1,11 @@
 # 렌더링과 내보내기 — 격자/흐름·스타일 토큰·export
 
-> **⚠️ 2026-09-09 리셋**: 격자 편집 표면이 SVG 격자 + 가상 캐럿 → (잠깐) 순수 `<textarea>`
-> → **CodeMirror 6**(`docs/grid-editor.md`)로 바뀌었다. 1세대 SVG 코드는
-> `archive/svg-grid-editor/`. 이 문서의 SVG 격자·칸 클릭 배치·`virtualCell` 관련 서술은
-> **갱신 대기**(현재 코드와 어긋남).
+> **⚠️ 2026-09-11 리셋**: 격자 편집 표면이 SVG 격자+가상 캐럿 → 순수 `<textarea>` →
+> CodeMirror 6 → 좌표 맵(이산 격자) → **연속 좌표 + 조각(fragment), 겹침 가능**
+> (`docs/canvas-editor.md`)으로 계속 바뀌었다. 옛 코드는 `archive/svg-grid-editor/`·
+> `archive/discrete-grid-editor/`. 격자 모드 출력은 이제 `CanvasPreview.vue`가 조각의
+> (x,y)에 그대로 SVG를 찍는다 — 이 문서의 SVG 격자·칸 클릭 배치·`virtualCell` 관련
+> 서술은 **갱신 대기**(현재 코드와 어긋남).
 
 격자 모드는 SVG 격자로, 흐름 모드는 SVG 텍스트 조판으로 그린다. 이 문서는 두 모드의
 렌더링 방식과 스타일 토큰 규칙, 그리고 SVG/PNG 내보내기를 정리한다.

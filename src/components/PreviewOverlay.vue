@@ -10,8 +10,8 @@ import {
 } from "reka-ui";
 import { useEditorUiStore } from "../stores/editorUi";
 import { useManuscriptStore } from "../stores/manuscript";
+import CanvasPreview from "./CanvasPreview.vue";
 import FlowPreview from "./FlowPreview.vue";
-import GridPreview from "./GridPreview.vue";
 
 const { mode } = storeToRefs(useManuscriptStore());
 const { previewOpen } = storeToRefs(useEditorUiStore());
@@ -31,7 +31,7 @@ const { previewOpen } = storeToRefs(useEditorUiStore());
           </DialogClose>
         </div>
         <div class="preview-body">
-          <GridPreview v-if="mode === 'grid'" />
+          <CanvasPreview v-if="mode === 'grid'" />
           <FlowPreview v-else />
         </div>
       </DialogContent>

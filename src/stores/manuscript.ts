@@ -1,15 +1,8 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
-import { flowGraphemes } from "../core/layout";
+import { ref } from "vue";
+import type { Fragment } from "../core/fragments";
 
-export const GRID = {
-  minCols: 20,
-  minRows: 12,
-  fontSize: 20,
-  lineHeight: 34,
-  padX: 16,
-  padY: 16,
-} as const;
+export type { Fragment } from "../core/fragments";
 
 export const FLOW = {
   width: 500,
@@ -17,6 +10,12 @@ export const FLOW = {
   lineHeight: 30,
   padX: 16,
   padY: 16,
+} as const;
+
+export const CANVAS = {
+  fontSize: 19,
+  lineHeight: 1.5,
+  fontFamily: "var(--font-manuscript)",
 } as const;
 
 const DEAFAULT_VALUE = `
@@ -39,15 +38,33 @@ const DEAFAULT_VALUE = `
            배시은 시집 <소공포>
 `;
 
+let seq = 0;
+function fragId(): string {
+  seq += 1;
+  return `f${seq}`;
+}
+
+function defaultFragments(): Fragment[] {
+  return [
+    { x: 40, y: 30, text: "나는 화자가 아니다" },
+    { x: 60, y: 90, text: "나는 인터넷" },
+    { x: 150, y: 100, text: "그리고 신체" },
+    { x: 430, y: 60, text: "간과하는 것들로부터" },
+    { x: 470, y: 150, text: "자유로울 수 없다" },
+    { x: 460, y: 145, text: "간과하는" },
+    { x: 120, y: 260, text: "여전히\n가장\n중요한 것을" },
+    { x: 620, y: 320, text: "마음 깊숙이는" },
+    { x: 640, y: 340, text: "받아들이지 못하고" },
+    { x: 90, y: 420, text: "'현재형 일기' 중에서, 배시은" },
+  ].map((f) => ({ id: fragId(), ...f }));
+}
+
 export type WritingMode = "grid" | "flow";
 
 export const useManuscriptStore = defineStore("manuscript", () => {
   const text = ref(DEAFAULT_VALUE);
+  const fragments = ref<Fragment[]>(defaultFragments());
   const mode = ref<WritingMode>("grid");
 
-  const gridLayout = computed(() =>
-    flowGraphemes(text.value, GRID.minCols, GRID.minRows),
-  );
-
-  return { text, mode, gridLayout };
+  return { text, fragments, mode, defaultFragments, fragId };
 });

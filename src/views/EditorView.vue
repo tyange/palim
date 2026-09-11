@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { onMounted, onUnmounted, ref } from "vue";
+import CanvasEditor from "../components/CanvasEditor.vue";
 import CommandBar from "../components/CommandBar.vue";
 import CommandPalette from "../components/CommandPalette.vue";
 import FlowEditor from "../components/FlowEditor.vue";
-import GridEditor from "../components/GridEditor.vue";
 import PreviewOverlay from "../components/PreviewOverlay.vue";
 import { useEditorUiStore } from "../stores/editorUi";
-import { FLOW, GRID, useManuscriptStore } from "../stores/manuscript";
+import { FLOW, useManuscriptStore } from "../stores/manuscript";
 
 const { mode } = storeToRefs(useManuscriptStore());
 const ui = useEditorUiStore();
@@ -40,14 +40,9 @@ function centerOn(innerY: number, smooth = true) {
   });
 }
 
-function metrics() {
-  return mode.value === "grid" ? GRID : FLOW;
-}
-
 function onCaretLine(line: number) {
-  if (!typewriter.value) return;
-  const m = metrics();
-  centerOn(line * m.lineHeight + m.padY);
+  if (!typewriter.value || mode.value !== "flow") return;
+  centerOn(line * FLOW.lineHeight + FLOW.padY);
 }
 
 function onKey(e: KeyboardEvent) {
@@ -78,11 +73,12 @@ onUnmounted(() => {
     @pointermove="revealChrome"
   >
     <div ref="stageRef" class="relative min-w-0 flex-1 overflow-auto">
+      <CanvasEditor v-if="mode === 'grid'" class="min-h-full" />
       <div
-        class="flex w-full pt-[12vh] pb-[45vh] px-[clamp(24px,8vw,160px)] [justify-content:safe_center]"
+        v-else
+        class="flex w-full px-[clamp(24px,8vw,160px)] pt-[12vh] pb-[45vh] [justify-content:safe_center]"
       >
-        <GridEditor v-if="mode === 'grid'" @caretmove="onCaretLine" />
-        <FlowEditor v-else @caretmove="onCaretLine" />
+        <FlowEditor @caretmove="onCaretLine" />
       </div>
     </div>
 

@@ -1,7 +1,22 @@
 <script setup lang="ts">
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { EditorState, Transaction } from "@codemirror/state";
 import {
+  cursorCharRight,
+  cursorLineDown,
+  defaultKeymap,
+  history,
+  historyKeymap,
+} from "@codemirror/commands";
+import {
+  EditorSelection,
+  EditorState,
+  Prec,
+  type Range,
+  StateField,
+  Transaction,
+} from "@codemirror/state";
+import {
+  Decoration,
+  type DecorationSet,
   drawSelection,
   EditorView,
   keymap,
@@ -9,26 +24,40 @@ import {
 } from "@codemirror/view";
 import { storeToRefs } from "pinia";
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
-import { MARGIN_COLS, MARGIN_ROWS, padRect, trimRect } from "../core/rect";
+import {
+  docFromString,
+  docsEqual,
+  MARGIN_COLS,
+  MARGIN_ROWS,
+  padRectFromDoc,
+} from "../core/coord";
 import { GRID, useManuscriptStore } from "../stores/manuscript";
 
 const emit = defineEmits<{ caretmove: [line: number] }>();
 
-const { text } = storeToRefs(useManuscriptStore());
+const store = useManuscriptStore();
+const { doc } = storeToRefs(store);
+
+function cmDoc(): string {
+  return view ? view.state.doc.toString() : "";
+}
 
 const hostRef = useTemplateRef<HTMLDivElement>("hostEl");
 const rc = ref({ row: 1, col: 0 });
-const frameH = ref(0);
 
 let view: EditorView | undefined;
 let internal = false;
 let repadHandle = 0;
 
+const FONT_FAMILY =
+  'ui-monospace, "SF Mono", Menlo, Consolas, "D2Coding", "Nanum Gothic Coding", "Apple SD Gothic Neo", "Malgun Gothic", monospace';
+
 const theme = EditorView.theme({
-  "&": { height: "auto", background: "transparent" },
-  ".cm-scroller": { overflow: "visible" },
+  "&": { height: "100%", background: "transparent" },
+  ".cm-scroller": { overflow: "auto", scrollbarWidth: "none" },
+  ".cm-scroller::-webkit-scrollbar": { display: "none" },
   ".cm-content": {
-    fontFamily: '"Nanum Gothic Coding", "D2Coding", ui-monospace, monospace',
+    fontFamily: FONT_FAMILY,
     fontSize: `${GRID.fontSize}px`,
     lineHeight: `${GRID.lineHeight}px`,
     wordSpacing: "0.5em",
@@ -41,6 +70,7 @@ const theme = EditorView.theme({
     color: "var(--foreground)",
   },
   ".cm-line": { padding: "0" },
+  ".cm-halfwidth": { letterSpacing: "var(--halfwidth-gap, 0px)" },
   "&.cm-focused": { outline: "none" },
   ".cm-cursor, .cm-dropCursor": {
     borderLeft: "2px solid var(--accent)",
@@ -53,6 +83,46 @@ const theme = EditorView.theme({
     },
 });
 
+const HALFWIDTH_RE = /[\x21-\x7E]+/g;
+const halfwidthMark = Decoration.mark({ class: "cm-halfwidth" });
+
+function buildHalfwidthDecorations(state: EditorState): DecorationSet {
+  const text = state.doc.toString();
+  const ranges: Range<Decoration>[] = [];
+  HALFWIDTH_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = HALFWIDTH_RE.exec(text))) {
+    ranges.push(halfwidthMark.range(m.index, m.index + m[0].length));
+  }
+  return Decoration.set(ranges);
+}
+
+const halfwidthField = StateField.define<DecorationSet>({
+  create: (state) => buildHalfwidthDecorations(state),
+  update: (value, tr) =>
+    tr.docChanged ? buildHalfwidthDecorations(tr.state) : value,
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+function measureHalfwidthGap(): number {
+  const probe = document.createElement("span");
+  probe.style.cssText = `position:fixed; visibility:hidden; white-space:pre; font-family:${FONT_FAMILY}; font-size:${GRID.fontSize}px;`;
+  document.body.appendChild(probe);
+  probe.textContent = "가";
+  const fullWidth = probe.getBoundingClientRect().width;
+  probe.textContent = "A";
+  const halfWidth = probe.getBoundingClientRect().width;
+  probe.remove();
+  return Math.max(0, fullWidth - halfWidth);
+}
+
+function applyHalfwidthGap() {
+  hostRef.value?.style.setProperty(
+    "--halfwidth-gap",
+    `${measureHalfwidthGap()}px`,
+  );
+}
+
 function reportCursor(state: EditorState) {
   const head = state.selection.main.head;
   const line = state.doc.lineAt(head);
@@ -62,30 +132,31 @@ function reportCursor(state: EditorState) {
 
 function pushToStore() {
   if (!view) return;
-  const trimmed = trimRect(view.state.doc.toString());
-  if (trimmed !== text.value) text.value = trimmed;
-}
-
-function measureFrame() {
-  if (!view) return;
-  const rows = trimRect(view.state.doc.toString()).split("\n").length;
-  frameH.value = rows * GRID.lineHeight + GRID.padY * 2 + 12;
+  store.doc = docFromString(cmDoc());
 }
 
 function repad() {
   if (!view || internal) return;
-  const raw = view.state.doc.toString();
+  const state = view.state;
+  const raw = state.doc.toString();
   const lines = raw.split("\n");
   const contentW = lines.reduce(
     (m, l) => Math.max(m, l.replace(/[ \t]+$/, "").length),
     0,
   );
   const curW = lines.reduce((m, l) => Math.max(m, l.length), 0);
-  const wantW = contentW + MARGIN_COLS;
+
+  const head = state.selection.main.head;
+  const caretLine = state.doc.lineAt(head);
+  const caretCol = head - caretLine.from;
+  const caretRow = caretLine.number;
+  const wantW = Math.max(contentW + MARGIN_COLS, caretCol + MARGIN_COLS);
 
   let blankTail = 0;
   for (let i = lines.length - 1; i >= 0 && lines[i].trim() === ""; i--)
     blankTail += 1;
+  const contentRows = lines.length - blankTail;
+  const wantRows = Math.max(contentRows + MARGIN_ROWS, caretRow + MARGIN_ROWS);
 
   const changes: { from: number; to: number; insert: string }[] = [];
   if (wantW > curW) {
@@ -101,9 +172,9 @@ function repad() {
       pos += l.length + 1;
     }
   }
-  if (blankTail < MARGIN_ROWS) {
+  if (lines.length < wantRows) {
     const w = Math.max(curW, wantW);
-    const add = MARGIN_ROWS - blankTail;
+    const add = wantRows - lines.length;
     changes.push({
       from: raw.length,
       to: raw.length,
@@ -112,9 +183,13 @@ function repad() {
   }
   if (!changes.length) return;
 
+  const changeSet = state.changes(changes);
+  const selection = state.selection.map(changeSet, -1);
+
   internal = true;
   view.dispatch({
     changes,
+    selection,
     annotations: Transaction.addToHistory.of(false),
     scrollIntoView: false,
   });
@@ -131,15 +206,46 @@ function onUpdate(u: ViewUpdate) {
     pushToStore();
     scheduleRepad();
   }
-  if (u.docChanged) measureFrame();
   if (u.docChanged || u.selectionSet) reportCursor(u.state);
 }
 
-watch(text, (v) => {
-  if (!view || trimRect(view.state.doc.toString()) === v) return;
+function growing(cmd: (v: EditorView) => boolean) {
+  return (v: EditorView): boolean => {
+    const moved = cmd(v);
+    if (moved) repad();
+    return moved;
+  };
+}
+
+function charLeftNoWrap(v: EditorView): boolean {
+  const { head } = v.state.selection.main;
+  const line = v.state.doc.lineAt(head);
+  if (head > line.from) {
+    v.dispatch({
+      selection: EditorSelection.cursor(head - 1),
+      scrollIntoView: true,
+    });
+  }
+  return true;
+}
+
+const gridNavKeymap = Prec.highest(
+  keymap.of([
+    { key: "ArrowRight", run: growing(cursorCharRight) },
+    { key: "ArrowDown", run: growing(cursorLineDown) },
+    { key: "ArrowLeft", run: charLeftNoWrap },
+  ]),
+);
+
+watch(doc, (d) => {
+  if (!view || docsEqual(docFromString(cmDoc()), d)) return;
   internal = true;
   view.dispatch({
-    changes: { from: 0, to: view.state.doc.length, insert: padRect(v) },
+    changes: {
+      from: 0,
+      to: view.state.doc.length,
+      insert: padRectFromDoc(d),
+    },
   });
   internal = false;
 });
@@ -149,11 +255,13 @@ onMounted(() => {
   view = new EditorView({
     parent: hostRef.value,
     state: EditorState.create({
-      doc: padRect(text.value),
+      doc: padRectFromDoc(doc.value),
       extensions: [
         history(),
+        gridNavKeymap,
         keymap.of([...defaultKeymap, ...historyKeymap]),
         drawSelection(),
+        halfwidthField,
         EditorView.updateListener.of(onUpdate),
         theme,
       ],
@@ -161,7 +269,12 @@ onMounted(() => {
   });
   view.focus();
   reportCursor(view.state);
-  measureFrame();
+  applyHalfwidthGap();
+
+  document.fonts.ready.then(() => {
+    view?.requestMeasure();
+    applyHalfwidthGap();
+  });
 });
 
 onBeforeUnmount(() => {
@@ -172,19 +285,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="editor-frame"
-    :style="frameH ? { height: `${frameH}px` } : undefined"
-  >
-    <div ref="hostEl" />
+  <div class="editor-frame">
+    <div ref="hostEl" class="editor-host" />
     <span class="rc-readout">{{ rc.row }}:{{ rc.col }}</span>
   </div>
 </template>
 
 <style scoped>
 .editor-frame {
-  width: max-content;
+  position: relative;
+  width: min(90vw, 640px);
+  height: min(70vh, 560px);
   padding: 12px;
+  overflow: hidden;
   --mark: color-mix(in srgb, var(--foreground) 28%, transparent);
   --mark-len: 14px;
   background-color: color-mix(in srgb, var(--foreground) 2.5%, transparent);
@@ -216,6 +329,11 @@ onBeforeUnmount(() => {
     1px var(--mark-len),
     var(--mark-len) 1px,
     1px var(--mark-len);
+}
+
+.editor-host {
+  width: 100%;
+  height: 100%;
 }
 
 .rc-readout {

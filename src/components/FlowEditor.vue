@@ -7,7 +7,8 @@ const { width, fontSize, lineHeight, padX, padY } = FLOW;
 
 const emit = defineEmits<{ caretmove: [line: number] }>();
 
-const { text } = storeToRefs(useManuscriptStore());
+const store = useManuscriptStore();
+const { text } = storeToRefs(store);
 
 const areaRef = useTemplateRef<HTMLTextAreaElement>("areaEl");
 
@@ -28,14 +29,20 @@ function reportCaret() {
 }
 
 function onInput(event: Event) {
-  text.value = (event.target as HTMLTextAreaElement).value;
+  store.text = (event.target as HTMLTextAreaElement).value;
   autoGrow();
   reportCaret();
 }
 
-watch(text, () => nextTick(autoGrow));
+watch(text, (v) => {
+  const el = areaRef.value;
+  if (el && el.value !== v) el.value = v;
+  nextTick(autoGrow);
+});
 onMounted(() => {
-  areaRef.value?.focus();
+  const el = areaRef.value;
+  if (el) el.value = text.value;
+  el?.focus();
   autoGrow();
   reportCaret();
 });
@@ -56,7 +63,6 @@ onMounted(() => {
         lineHeight: `${lineHeight}px`,
         padding: `${padY}px ${padX}px`,
       }"
-      :value="text"
       @input="onInput"
       @keyup="reportCaret"
       @click="reportCaret"

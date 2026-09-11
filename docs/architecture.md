@@ -1,91 +1,35 @@
-# 아키텍처 — 진실원천·파이프라인과 코어 엔진
+# 아키텍처 — 모드별 독립 진실원천
 
-> **⚠️ 2026-09-09 리셋**: 격자 편집 표면이 SVG 격자 + 가상 캐럿 → (잠깐) 순수 `<textarea>`
-> → **CodeMirror 6**(`docs/grid-editor.md`)로 바뀌었다. 1세대 SVG 코드는
-> `archive/svg-grid-editor/`. 이 문서의 SVG 격자·칸 클릭 배치·`virtualCell` 관련 서술은
-> **갱신 대기**(현재 코드와 어긋남).
+> **⚠️ 2026-09-11 리셋**: 격자 편집 표면이 SVG 격자+가상 캐럿 → 순수 `<textarea>` →
+> CodeMirror 6 → 좌표 맵 진실원천(이산 격자) → **연속 좌표 + 조각(fragment), 겹침
+> 가능**(`docs/canvas-editor.md`)으로 계속 갈렸다. 이 문서 아래 있던 `offset`/
+> `segmentGraphemes`/`flowGraphemes`/`GridLayout` 설명은 전부 **이산 격자 시절 것으로
+> 이제 아카이브 코드**(`archive/discrete-grid-editor/`) 설명이다 — 활성 코드와
+> 안 맞는다. 상세 재작성은 후속. 지금 진실은 아래 요약과 `docs/canvas-editor.md`.
 
-Palim 본문은 **하나의 문자열**(`text`)이 진실원천이고, `mode`("grid" | "flow")에 따라
-화면이 파생된다. 이 문서는 그 파이프라인과 `core/`의 격자 배치 로직을 정리한다.
-
-두 모드가 갈리는 근거는 [`writing-modes.md`](./writing-modes.md)에 있고, 이 문서는
-**코드가 어떻게 구현하는지**를 다룬다.
-
-## 진실원천과 파생
+Palim은 격자·흐름 두 모드에 **하나의 공유 진실원천을 두지 않는다.** 두 모드는 서로
+독립된 문서다(`stores/manuscript.ts`):
 
 ```
-text(string) + mode            ← 단일 진실원천 (stores/manuscript.ts)
-  ├─ grid: segmentGraphemes()  ① 자소 분할(offset·줄바꿈)       src/core/tokenizer.ts
-  │        → flowGraphemes()   ② 자소 1=1칸, 자동 cols/rows 격자  src/core/layout.ts
-  │        → GridLayout        cellText / cellToOffset / cellSpan / offsetToCell / endCellIndex
-  └─ flow: <textarea> 그대로   비례폭 — 코어 파이프라인을 거치지 않음
+mode: "grid" | "flow"
+  ├─ grid:  fragments: Fragment[]   { id, x, y, text }[], 연속 좌표, 겹침 가능
+  └─ flow:  text: string            <textarea>(uncontrolled), 비례폭
 ```
 
-- `core/`는 **DOM·Vue를 모르는 순수 TS**다. 격자 배치 규칙은 전부 여기 있고 단위
-  테스트하기 좋은 형태다.
-- `stores/manuscript.ts`가 `text` ref(원본)·`mode` ref와 `gridLayout` computed(파생)를
-  한 스토어에 묶는다. 격자 모드의 편집(`GridEditor`)·출력(`GridPreview`)이 같은
-  `gridLayout`을, 흐름 모드의 편집(`FlowEditor`)·출력(`FlowPreview`)이 같은 `text`를
-  구독하므로 편집면과 출력면이 항상 일치한다.
+- 겹칠 수 있는 배치를 평문 한 줄로 표현할 방법이 없어 `fragments` ⇄ `text` 변환은
+  **정의되지 않는다.** 모드 토글은 그냥 두 문서를 오갈 뿐 내용이 옮겨가지 않는다 —
+  이전(이산 격자 시절)에는 `doc`(좌표 맵) 하나에서 `text`가 파생됐지만, 겹침을 표현
+  못 해 모델 자체를 교체했다.
+- 격자 모드의 편집(`CanvasEditor.vue`)·출력(`CanvasPreview.vue`)이 같은 `fragments`와
+  같은 `CANVAS` 폰트 메트릭을 구독하므로 편집면과 출력면이 항상 일치한다. 흐름 모드의
+  편집(`FlowEditor.vue`)·출력(`FlowPreview.vue`)은 같은 `text`를 구독한다.
+- 두 모드가 갈리는 근거는 [`writing-modes.md`](./writing-modes.md), 격자 모드 데이터
+  모델·편집 방식의 상세는 [`canvas-editor.md`](./canvas-editor.md)에 있다.
 
-### 크기 상수 (`stores/manuscript.ts`)
+## 코어 로직
 
-격자 크기는 **고정이 아니라 내용에 맞춰 자동 확장**된다. 상수는 하한·메트릭만 정한다.
-
-| 상수 | 키 | 의미 |
-|---|---|---|
-| `GRID` | `colSize` 32 · `rowSize` 44 | 편집 격자 칸 advance(가로·세로, px) |
-| | `minCols` 20 | 격자 최소 열 수 |
-| | `minRows` 12 | 격자 최소 행 수 |
-| `FLOW` | `width` 680 | 흐름 모드 박스 폭(px) |
-| | `fontSize` 18 · `lineHeight` 30 · `padX`/`padY` 16 | 흐름 조판 메트릭 |
-
-## offset 모델 (UTF-16)
-
-`offset`은 원본 문자열의 **UTF-16 인덱스**로, textarea `selectionStart`와 같은 좌표계다.
-격자 모드의 칸↔캐럿 역산이 모두 이 offset 위에서 동작한다.
-
-- `cellToOffset[i]` — 칸 i 첫 자소의 offset (칸 클릭 → 캐럿 위치)
-- `offsetToCell.get(offset)` — 자소 시작 offset → 칸 인덱스 (캐럿 → 활성 칸)
-- `cellSpan[i]` — 칸 i가 덮는 `[start, end)` 구간 (선택 삭제·캐럿 판정)
-
-> **줄바꿈(`\n`) offset은 그 줄바꿈이 연 새 줄의 첫 칸으로 역산된다.** `\n`은 칸을
-> 차지하지 않아 `cellText`/`cellSpan`엔 안 들어가지만, `offsetToCell`에는 등록한다.
-> 캐럿이 `\n` 바로 뒤(=새 줄 맨 앞)에 있을 때 활성 칸을 '캐럿 왼쪽 칸'으로 역산하면
-> 그 왼쪽이 `\n`이 되는데, 등록이 없으면 `endCellIndex`(글 끝)로 폴백해 캐럿이 엉뚱한
-> 칸에 그려진다. 새 줄 첫 칸으로 매핑하면 중간 Enter·연속 빈 줄 모두에서 캐럿이
-> 새 줄 맨 앞에 정확히 앉는다.
-
-## ① 자소 분할 (`core/tokenizer.ts`)
-
-`segmentGraphemes(text)`는 `Intl.Segmenter("ko", { granularity: "grapheme" })`로 문자열을
-자소 단위로 끊어 `{ char, offset, isNewline }[]`로 돌려준다. 결합 문자·이모지·서로게이트
-쌍도 "사용자가 보는 한 글자"로 묶이고, `offset`은 UTF-16 인덱스다. 줄바꿈은 `\n`·`\r\n`·
-`\r`를 한 자소로 보고 `isNewline`으로 표시한다. 분할기는 생성 비용이 있어 모듈 수준에서
-1회만 만든다. (원고지 칸 점유 분류는 더 이상 하지 않는다 — `writing-modes.md` §2.)
-
-## ② 격자 배치 (`core/layout.ts`)
-
-`flowGraphemes(text, minCols, minRows)`는 자소를 **한 칸에 하나씩** 격자에 흘려넣는다.
-격자 무관 순수 로직이다.
-
-- **자동 크기**: 1패스로 줄별 자소 수를 세 `cols = max(minCols, 최장 줄)`,
-  `rows = max(minRows, 줄수 + 1)`를 정한다(`+1`은 아래쪽 배치용 여유 행).
-- **배치**: 2패스로 자소를 `idx = row*cols+col`에 채운다. 공백도 한 칸을 차지한다(배치
-  보존). `\n`은 칸을 안 먹고 `row+=1; col=0`으로 행을 내리며, 그 offset을 **다음 행 첫 칸**
-  으로 `offsetToCell`에 등록한다.
-- **묶기·금칙·soft-wrap 없음**: 숫자·소문자 2개 묶기, 부호 합치기, 행두 금칙 reflow, 자동
-  줄넘김을 **하지 않는다**. 놓은 그대로가 결과다.
-
-### `GridLayout` 데이터 모델
-
-`flowGraphemes`의 결과. 격자 모드 화면은 이 구조만 보고 그린다.
-
-| 필드 | 의미 |
-|---|---|
-| `rows` · `cols` | 자동 확장된 격자 크기 |
-| `cellText[]` | 각 칸의 자소(`rows*cols` 길이, 빈 칸 `""`, 공백 칸 `" "`) |
-| `cellToOffset[]` | 칸 인덱스 → 그 칸 자소 offset (칸 클릭 → 캐럿) |
-| `cellSpan[]` | 칸 인덱스 → 덮는 `[start, end)` 구간 (선택 삭제·캐럿) |
-| `offsetToCell` | 자소 시작 offset → 칸 인덱스 (캐럿 → 활성 칸) |
-| `endCellIndex` | 글 끝(다음 입력)이 놓일 칸. 캐럿이 글 끝일 때 강조용. 격자 끝이면 클램프 |
+격자 모드에 남은 유일한 순수 로직은 `src/core/fragments.ts`(`bringToFront`/
+`removeById`) — 조각 배열 조작만 다루는 작은 모듈이다. 자소 분할·격자 배치
+(`segmentGraphemes`/`flowGraphemes`/`GridLayout`, offset 기반 칸↔캐럿 역산)는 이산
+격자 시절 로직으로 전부 `archive/discrete-grid-editor/`에 있다 — 연속 좌표엔 "칸"이
+없어 대응하는 개념이 없다.

@@ -5,11 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>palim</title>
-    <!-- 흐름 본문용 명조 Noto Serif KR + 격자용 고정폭 Nanum Gothic Coding -->
+    <!-- 흐름·격자 모두 명조 Noto Serif KR 하나(`--font-manuscript`) 공유.
+         격자가 연속 좌표 캔버스가 되며 고정폭 전용 서체가 필요 없어졌다. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding:wght@400;700&family=Noto+Serif+KR:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
     <!-- 첫 페인트 전에 테마 클래스를 적용해 깜빡임(FOUC) 방지.
