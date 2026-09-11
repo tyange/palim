@@ -72,23 +72,25 @@ mode: "grid" | "flow"
 데이터 흐름: `App → EditorView(전체 화면 셸) → (모드별 편집) + 크롬(하단 명령 바) +
 오버레이(팔레트·미리보기)`. 모두 같은 스토어 구독.
 
-| 파일                            | 책임 / 알아둘 점                                                                                                                                    |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core/fragments.ts`             | `bringToFront`(맨 뒤=맨 위로 쌓기)·`removeById` — 조각 배열에 대한 순수 로직                                                                        |
-| `stores/manuscript.ts`          | `fragments`(격자 모드 진실원천) + `text`(흐름 모드 진실원천, 서로 독립) + `mode` ref + `CANVAS`·`FLOW` 상수                                         |
-| `stores/editorUi.ts`            | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발)                                                          |
-| `components/CanvasEditor.vue`   | **격자 모드 편집.** 빈 곳 클릭=조각 생성, 조각 클릭/드래그=재편집/이동, 편집 중인 조각 하나에만 진짜 `contenteditable`. `docs/canvas-editor.md`     |
-| `components/CanvasPreview.vue`  | 격자 모드 출력. 조각의 (x,y)에 그대로 SVG로 찍고 export                                                                                             |
-| `components/FlowEditor.vue`     | 흐름 모드 편집. 투명 **uncontrolled** `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장), `@input`→`store.text = 값` + `caretmove`(줄 번호) emit |
-| `components/FlowPreview.vue`    | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export                                                                                        |
-| `components/CommandBar.vue`     | 하단 중앙 플로팅 알약. Reka `Toolbar` — 격자/흐름 `ToolbarToggleGroup` + ⌘K + 테마 버튼(+`Tooltip`). 옛 ModeToggle·PaneToggle·ThemeToggle 흡수      |
-| `components/CommandPalette.vue` | ⌘K 팔레트. Reka `Dialog` + `Listbox`/`ListboxFilter`. 필터는 수동, 선택 watch → 실행                                                                |
-| `components/PreviewOverlay.vue` | ⌘↵ 미리보기. Reka `Dialog`로 `CanvasPreview`/`FlowPreview` 래핑                                                                                     |
-| `components/AppToaster.vue`     | Reka `Toast`. `App.vue` 상주. 내보내기 성공 토스트                                                                                                  |
-| `views/EditorView.vue`          | **전체 화면 몰입 셸.** 모드 분기, 크롬 숨김, 타자기 스크롤, ⌘K/⌘↵ 키(Esc는 Dialog가 처리). `docs/editor-shell.md`                                   |
-| `composables/useExport.ts`      | SVG 직렬화 저장 + PNG(canvas `fillText`, 3배 스케일) 공통 헬퍼                                                                                      |
-| `composables/useTheme.ts`       | `useColorMode` 래핑(`isDark`·`toggle`). CommandBar/Palette 공용                                                                                     |
-| `composables/useToast.ts`       | 모듈 스코프 `toasts` 큐 + `addToast`/`dismiss`                                                                                                      |
+| 파일                              | 책임 / 알아둘 점                                                                                                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/fragments.ts`               | `bringToFront`(맨 뒤=맨 위로 쌓기)·`removeById` — 조각 배열에 대한 순수 로직                                                                                                     |
+| `core/align.ts`                   | `alignEdge`·`distribute` — 좌표·크기만 받아 정렬/균등 배치 결과를 계산하는 순수 로직(DOM 실측은 호출부 책임)                                                                     |
+| `stores/manuscript.ts`            | `fragments`(격자 모드 진실원천) + `text`(흐름 모드 진실원천, 서로 독립) + `mode` ref + `CANVAS`·`FLOW` 상수                                                                      |
+| `stores/editorUi.ts`              | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발)                                                                                       |
+| `components/CanvasEditor.vue`     | **격자 모드 편집.** 빈 곳 클릭=조각 생성, 조각 클릭/드래그=재편집/이동, 편집 중인 조각 하나에만 진짜 `contenteditable`. 빈 곳 드래그=다중 선택(marquee). `docs/canvas-editor.md` |
+| `components/CanvasPreview.vue`    | 격자 모드 출력. 조각의 (x,y)에 그대로 SVG로 찍고 export                                                                                                                          |
+| `components/SelectionToolbar.vue` | 격자 모드에서 2개 이상 선택 시 뜨는 플로팅 정렬/균등 배치 툴바(`core/align.ts` 계산 결과 적용)                                                                                   |
+| `components/FlowEditor.vue`       | 흐름 모드 편집. 투명 **uncontrolled** `<textarea>`(pre-wrap, Noto Serif KR, 세로 자동 확장), `@input`→`store.text = 값` + `caretmove`(줄 번호) emit                              |
+| `components/FlowPreview.vue`      | 흐름 모드 출력. canvas 측정으로 비례폭 조판 + SVG/PNG export                                                                                                                     |
+| `components/CommandBar.vue`       | 하단 중앙 플로팅 알약. Reka `Toolbar` — 격자/흐름 `ToolbarToggleGroup` + ⌘K + 테마 버튼(+`Tooltip`). 옛 ModeToggle·PaneToggle·ThemeToggle 흡수                                   |
+| `components/CommandPalette.vue`   | ⌘K 팔레트. Reka `Dialog` + `Listbox`/`ListboxFilter`. 필터는 수동, 선택 watch → 실행                                                                                             |
+| `components/PreviewOverlay.vue`   | ⌘↵ 미리보기. Reka `Dialog`로 `CanvasPreview`/`FlowPreview` 래핑                                                                                                                  |
+| `components/AppToaster.vue`       | Reka `Toast`. `App.vue` 상주. 내보내기 성공 토스트                                                                                                                               |
+| `views/EditorView.vue`            | **전체 화면 몰입 셸.** 모드 분기, 크롬 숨김, 타자기 스크롤, ⌘K/⌘↵ 키(Esc는 Dialog가 처리). `docs/editor-shell.md`                                                                |
+| `composables/useExport.ts`        | SVG 직렬화 저장 + PNG(canvas `fillText`, 3배 스케일) 공통 헬퍼                                                                                                                   |
+| `composables/useTheme.ts`         | `useColorMode` 래핑(`isDark`·`toggle`). CommandBar/Palette 공용                                                                                                                  |
+| `composables/useToast.ts`         | 모듈 스코프 `toasts` 큐 + `addToast`/`dismiss`                                                                                                                                   |
 
 ### CanvasEditor.vue — 연속 좌표 + 조각별 native contenteditable (수정 전 필독)
 
@@ -113,7 +115,11 @@ mode: "grid" | "flow"
   에서만 읽어 커밋. 빈 텍스트로 커밋하면 조각 삭제.
 - Safari 함정: 드래그 중 네이티브 텍스트 선택이 끼어드는 문제 — `pointerdown`에
   `preventDefault()` + `.frag`에 `user-select: none`(`-webkit-` 포함)으로 막는다.
-- undo/redo·넛지·정렬은 아직 없음(CM6가 공짜로 주던 것을 잃은 트레이드오프).
+- 빈 곳 드래그로 다중 선택(marquee) → 그룹 드래그 이동, Delete/Backspace로 그룹 삭제,
+  2개 이상 선택 시 뜨는 `SelectionToolbar.vue`로 정렬/균등 배치. Shift/Cmd+클릭 추가
+  선택은 없음(마키만) — 배경 클릭이 이미 "조각 생성"이라 조작을 드래그로 완전히
+  분리하는 쪽을 택함. 상세는 `docs/canvas-editor.md`.
+- undo/redo·방향키 넛지는 아직 없음(CM6가 공짜로 주던 것을 잃은 트레이드오프).
 - 자세한 근거·데이터 모델·잃은 것은 `docs/canvas-editor.md`. 시안:
   `design-system/mockups/palim/freeform-canvas-directions.html`.
 
@@ -156,9 +162,9 @@ mode: "grid" | "flow"
 
 ## 검증
 
-- **단위 테스트(Vitest)**: 조각 배열 로직은 `core/fragments.ts`에 순수 TS로 모여 있어
-  단위 테스트로 검증한다. `fragments.test.ts`(`bringToFront`/`removeById`)가 있다.
-  **배치 규칙을 바꾸면 같은 PR에서 테스트도 갱신한다.**
+- **단위 테스트(Vitest)**: 조각 배열·정렬 로직은 `core/`에 순수 TS로 모여 있어 단위
+  테스트로 검증한다. `fragments.test.ts`(`bringToFront`/`removeById`), `align.test.ts`
+  (`alignEdge`/`distribute`)가 있다. **배치 규칙을 바꾸면 같은 PR에서 테스트도 갱신한다.**
 - `bun run build`가 `vue-tsc` 타입체크를 겸하므로 타입 회귀는 여기서 잡힌다.
 - IME/캐럿 회귀는 Vitest로 잡기 어렵다(브라우저 IME 의존). `bun run dev`(port 5173)로
   띄운 뒤 입력 시퀀스를 직접 재현하고 콘솔에서 코드포인트를 덤프해 확인한다
