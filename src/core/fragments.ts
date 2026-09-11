@@ -16,3 +16,7 @@ export function removeById(fragments: Fragment[], id: string): void {
   const idx = fragments.findIndex((f) => f.id === id);
   if (idx !== -1) fragments.splice(idx, 1);
 }
+
+export function cloneFragments(fragments: Fragment[]): Fragment[] {
+  return fragments.map((f) => ({ ...f }));
+}

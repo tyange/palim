@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { Fragment } from "../core/fragments";
+import { cloneFragments, type Fragment } from "../core/fragments";
+import { History } from "../core/history";
 
 export type { Fragment } from "../core/fragments";
 
@@ -66,5 +67,38 @@ export const useManuscriptStore = defineStore("manuscript", () => {
   const fragments = ref<Fragment[]>(defaultFragments());
   const mode = ref<WritingMode>("grid");
 
-  return { text, fragments, mode, defaultFragments, fragId };
+  const fragmentsHistory = new History<Fragment[]>();
+  const canUndo = ref(false);
+  const canRedo = ref(false);
+  function syncHistoryFlags() {
+    canUndo.value = fragmentsHistory.canUndo;
+    canRedo.value = fragmentsHistory.canRedo;
+  }
+  function snapshot() {
+    fragmentsHistory.push(cloneFragments(fragments.value));
+    syncHistoryFlags();
+  }
+  function undo() {
+    const prev = fragmentsHistory.undo(cloneFragments(fragments.value));
+    if (prev) fragments.value = prev;
+    syncHistoryFlags();
+  }
+  function redo() {
+    const next = fragmentsHistory.redo(cloneFragments(fragments.value));
+    if (next) fragments.value = next;
+    syncHistoryFlags();
+  }
+
+  return {
+    text,
+    fragments,
+    mode,
+    defaultFragments,
+    fragId,
+    snapshot,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  };
 });

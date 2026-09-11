@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Moon, Sun } from "lucide-vue-next";
+import { Moon, Redo2, Sun, Undo2 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import {
   ToolbarButton,
@@ -17,7 +17,8 @@ import { useTheme } from "../composables/useTheme";
 import { useEditorUiStore } from "../stores/editorUi";
 import { useManuscriptStore } from "../stores/manuscript";
 
-const { mode } = storeToRefs(useManuscriptStore());
+const manuscript = useManuscriptStore();
+const { mode, canUndo, canRedo } = storeToRefs(manuscript);
 const ui = useEditorUiStore();
 const { chromeVisible } = storeToRefs(ui);
 const { isDark, toggle: toggleTheme } = useTheme();
@@ -44,6 +45,46 @@ function onModeChange(next: unknown) {
         <ToolbarToggleItem value="grid">격자</ToolbarToggleItem>
         <ToolbarToggleItem value="flow">흐름</ToolbarToggleItem>
       </ToolbarToggleGroup>
+
+      <template v-if="mode === 'grid'">
+        <ToolbarSeparator class="divider" />
+
+        <TooltipRoot>
+          <TooltipTrigger as-child>
+            <ToolbarButton
+              class="icon-btn"
+              aria-label="실행 취소"
+              :disabled="!canUndo"
+              @click="manuscript.undo()"
+            >
+              <Undo2 :size="18" :stroke-width="2" />
+            </ToolbarButton>
+          </TooltipTrigger>
+          <TooltipPortal>
+            <TooltipContent class="tooltip" :side-offset="8"
+              >실행 취소 (⌘Z)</TooltipContent
+            >
+          </TooltipPortal>
+        </TooltipRoot>
+
+        <TooltipRoot>
+          <TooltipTrigger as-child>
+            <ToolbarButton
+              class="icon-btn"
+              aria-label="다시 실행"
+              :disabled="!canRedo"
+              @click="manuscript.redo()"
+            >
+              <Redo2 :size="18" :stroke-width="2" />
+            </ToolbarButton>
+          </TooltipTrigger>
+          <TooltipPortal>
+            <TooltipContent class="tooltip" :side-offset="8"
+              >다시 실행 (⌘⇧Z)</TooltipContent
+            >
+          </TooltipPortal>
+        </TooltipRoot>
+      </template>
 
       <ToolbarSeparator class="divider" />
 
@@ -178,6 +219,11 @@ function onModeChange(next: unknown) {
 }
 .command-bar .icon-btn:hover {
   color: var(--foreground);
+}
+.command-bar .icon-btn:disabled {
+  color: var(--muted);
+  opacity: 0.35;
+  cursor: default;
 }
 .tooltip {
   padding: 4px 8px;

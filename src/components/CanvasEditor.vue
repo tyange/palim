@@ -22,6 +22,7 @@ const fragEls = new Map<string, HTMLElement>();
 
 const editingId = ref<string | null>(null);
 const editingPos = ref({ x: 0, y: 0 });
+const isNewFragment = ref(false);
 const selectedIds = ref<Set<string>>(new Set());
 const marquee = ref<{ x: number; y: number; w: number; h: number } | null>(
   null,
@@ -43,6 +44,7 @@ function placeCaretAtEnd(el: HTMLElement) {
 
 function startEdit(id: string) {
   selectedIds.value = new Set();
+  isNewFragment.value = false;
   bringToFront(fragments.value, id);
   const f = fragments.value.find((fr) => fr.id === id);
   if (!f) return;
@@ -57,16 +59,43 @@ function startEdit(id: string) {
   });
 }
 
+function startNewFragment(x: number, y: number) {
+  selectedIds.value = new Set();
+  isNewFragment.value = true;
+  editingId.value = store.fragId();
+  editingPos.value = { x, y };
+  nextTick(() => {
+    const el = editorRef.value;
+    if (!el) return;
+    el.textContent = "";
+    el.focus();
+  });
+}
+
 function commitEdit() {
   const id = editingId.value;
   if (id === null) return;
   const text = (editorRef.value?.innerText ?? "").replace(/\n+$/, "");
-  const idx = fragments.value.findIndex((f) => f.id === id);
-  if (idx !== -1) {
-    if (!text.trim()) removeById(fragments.value, id);
-    else fragments.value[idx] = { ...fragments.value[idx], text };
+  if (isNewFragment.value) {
+    if (text.trim()) {
+      store.snapshot();
+      fragments.value.push({
+        id,
+        x: editingPos.value.x,
+        y: editingPos.value.y,
+        text,
+      });
+    }
+  } else {
+    const idx = fragments.value.findIndex((f) => f.id === id);
+    if (idx !== -1 && text !== fragments.value[idx].text) {
+      store.snapshot();
+      if (!text.trim()) removeById(fragments.value, id);
+      else fragments.value[idx] = { ...fragments.value[idx], text };
+    }
   }
   editingId.value = null;
+  isNewFragment.value = false;
 }
 
 function onEditorKeydown(e: KeyboardEvent) {
@@ -109,11 +138,17 @@ function applyPositions(positions: Map<string, { x: number; y: number }>) {
 }
 
 function onAlign(edge: AlignEdge) {
-  applyPositions(alignEdge(selectedRects(), edge));
+  const positions = alignEdge(selectedRects(), edge);
+  if (positions.size === 0) return;
+  store.snapshot();
+  applyPositions(positions);
 }
 
 function onDistribute(axis: "x" | "y") {
-  applyPositions(distribute(selectedRects(), axis));
+  const positions = distribute(selectedRects(), axis);
+  if (positions.size === 0) return;
+  store.snapshot();
+  applyPositions(positions);
 }
 
 function onCanvasPointerDown(e: PointerEvent) {
@@ -161,10 +196,7 @@ function onCanvasPointerDown(e: PointerEvent) {
     window.removeEventListener("pointerup", onUp);
     marquee.value = null;
     if (moved) return;
-    selectedIds.value = new Set();
-    const f: Fragment = { id: store.fragId(), x: startX, y: startY, text: "" };
-    fragments.value.push(f);
-    startEdit(f.id);
+    startNewFragment(startX, startY);
   }
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
@@ -190,7 +222,10 @@ function onFragPointerDown(e: PointerEvent, f: Fragment) {
   function onMove(ev: PointerEvent) {
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
-    if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+    if (!moved && Math.abs(dx) + Math.abs(dy) > 3) {
+      moved = true;
+      store.snapshot();
+    }
     if (!moved) return;
     for (const [id, origin] of origins) {
       const idx = fragments.value.findIndex((fx) => fx.id === id);
@@ -216,14 +251,25 @@ function onFragPointerDown(e: PointerEvent, f: Fragment) {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (editingId.value !== null || selectedIds.value.size === 0) return;
+  if (editingId.value !== null) return;
   if (ui.paletteOpen || ui.previewOpen) return;
+
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    if (e.shiftKey) store.redo();
+    else store.undo();
+    selectedIds.value = new Set();
+    return;
+  }
+
+  if (selectedIds.value.size === 0) return;
   if (e.key === "Escape") {
     selectedIds.value = new Set();
     return;
   }
   if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault();
+    store.snapshot();
     for (const id of selectedIds.value) removeById(fragments.value, id);
     selectedIds.value = new Set();
   }
@@ -234,14 +280,13 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
-  <SelectionToolbar
-    v-if="selectedIds.size >= 2"
-    :count="selectedIds.size"
-    @align="onAlign"
-    @distribute="onDistribute"
-  />
-
   <div ref="canvasEl" class="canvas" @pointerdown="onCanvasPointerDown">
+    <SelectionToolbar
+      v-if="selectedIds.size >= 2"
+      :count="selectedIds.size"
+      @align="onAlign"
+      @distribute="onDistribute"
+    />
     <div
       v-for="f in fragments"
       v-show="f.id !== editingId"

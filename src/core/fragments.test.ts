@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { bringToFront, type Fragment, removeById } from "./fragments";
+import {
+  bringToFront,
+  cloneFragments,
+  type Fragment,
+  removeById,
+} from "./fragments";
 
 function make(id: string): Fragment {
   return { id, x: 0, y: 0, text: id };
@@ -36,5 +41,22 @@ describe("removeById", () => {
     const fragments = [make("a")];
     removeById(fragments, "z");
     expect(fragments).toHaveLength(1);
+  });
+});
+
+describe("cloneFragments", () => {
+  it("값은 같지만 배열·원소 모두 새 참조인 복사본을 만든다", () => {
+    const original = [make("a"), make("b")];
+    const clone = cloneFragments(original);
+    expect(clone).toEqual(original);
+    expect(clone).not.toBe(original);
+    expect(clone[0]).not.toBe(original[0]);
+  });
+
+  it("복사본을 바꿔도 원본은 그대로다", () => {
+    const original = [make("a")];
+    const clone = cloneFragments(original);
+    clone[0].text = "바뀜";
+    expect(original[0].text).toBe("a");
   });
 });
