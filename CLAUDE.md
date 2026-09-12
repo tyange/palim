@@ -78,7 +78,7 @@ mode: "grid" | "flow"
 | 파일                              | 책임 / 알아둘 점                                                                                                                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `core/fragments.ts`               | `bringToFront`(맨 뒤=맨 위로 쌓기)·`removeById`·`cloneFragments`·`nudge`·`duplicateSelected` — 조각 배열에 대한 순수 로직                                                        |
-| `core/align.ts`                   | `alignEdge`·`distribute` — 좌표·크기만 받아 정렬/균등 배치 결과를 계산하는 순수 로직(DOM 실측은 호출부 책임)                                                                     |
+| `core/align.ts`                   | `alignEdge`·`distribute`·`computeSnap` — 좌표·크기만 받아 정렬/균등 배치/드래그 스냅 결과를 계산하는 순수 로직(DOM 실측은 호출부 책임)                                           |
 | `core/history.ts`                 | `History<T>` — past/future 두 스택만 다루는 범용 undo/redo. 값이 뭔지·어떻게 복제하는지 모름(호출부 책임)                                                                        |
 | `stores/manuscript.ts`            | `fragments`(격자 모드 진실원천) + `text`(흐름 모드 진실원천, 서로 독립) + `mode` ref + `CANVAS`·`FLOW` 상수                                                                      |
 | `stores/editorUi.ts`              | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발)                                                                                       |
@@ -135,6 +135,10 @@ mode: "grid" | "flow"
 - **복제(⌘D)**: 클립보드 없이 선택 조각을 (16,16)px 밀어 제자리 복제
   (`core/fragments.ts`의 `duplicateSelected`), 복제본이 곧바로 선택돼 연달아
   누르면 대각선 계단식으로 퍼진다(Figma와 동일). 근거는 `docs/canvas-editor.md`.
+- **스마트 정렬 가이드**: 드래그 중 조각의 좌/가로중앙/우·상/세로중앙/하가 다른
+  조각과 6px 안으로 가까워지면 스냅 + 안내선(`core/align.ts`의 `computeSnap`).
+  x·y축 독립, 축마다 가장 가까운 후보 하나만, 다중 선택 드래그는 그룹 바운딩
+  박스 기준. 근거는 `docs/canvas-editor.md`.
 - 자세한 근거·데이터 모델·잃은 것은 `docs/canvas-editor.md`. 시안:
   `design-system/mockups/palim/freeform-canvas-directions.html`.
 
@@ -180,7 +184,8 @@ mode: "grid" | "flow"
 - **단위 테스트(Vitest)**: 조각 배열·정렬·히스토리 로직은 `core/`에 순수 TS로 모여
   있어 단위 테스트로 검증한다. `fragments.test.ts`(`bringToFront`/`removeById`/
   `cloneFragments`/`nudge`/`duplicateSelected`), `align.test.ts`(`alignEdge`/
-  `distribute`), `history.test.ts`(`History` push/undo/redo)가 있다. **배치 규칙을
+  `distribute`/`computeSnap`), `history.test.ts`(`History` push/undo/redo)가
+  있다. **배치 규칙을
   바꾸면 같은 PR에서 테스트도 갱신한다.**
 - `bun run build`가 `vue-tsc` 타입체크를 겸하므로 타입 회귀는 여기서 잡힌다.
 - IME/캐럿 회귀는 Vitest로 잡기 어렵다(브라우저 IME 의존). `bun run dev`(port 5173)로

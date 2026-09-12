@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type AlignRect, alignEdge, distribute } from "./align";
+import { type AlignRect, alignEdge, computeSnap, distribute } from "./align";
 
 function rect(id: string, x: number, y: number, w = 40, h = 20): AlignRect {
   return { id, x, y, w, h };
@@ -77,5 +77,56 @@ describe("distribute", () => {
 
   it("조각이 3개 미만이면 빈 결과", () => {
     expect(distribute([rect("a", 0, 0), rect("b", 10, 0)], "x").size).toBe(0);
+  });
+});
+
+describe("computeSnap", () => {
+  it("왼쪽 끝이 다른 조각의 왼쪽 끝과 임계값 안이면 그 위치로 스냅한다", () => {
+    const dragged = rect("a", 103, 0, 40, 20);
+    const other = rect("b", 100, 200, 40, 20);
+    const result = computeSnap(dragged, [other]);
+    expect(result.dx).toBe(-3);
+    expect(result.dy).toBe(0);
+    expect(result.guides).toContainEqual({ axis: "x", pos: 100 });
+  });
+
+  it("중앙·오른쪽 끝 등 서로 다른 기준끼리도 맞는다", () => {
+    // dragged 중앙(x=20)이 other 왼쪽 끝(x=20)과 맞음
+    const dragged = rect("a", 0, 0, 40, 20);
+    const other = rect("b", 20, 0, 100, 20);
+    const result = computeSnap(dragged, [other]);
+    expect(result.dx).toBe(0); // 이미 정확히 맞음
+    expect(result.guides.find((g) => g.axis === "x")?.pos).toBe(20);
+  });
+
+  it("임계값을 넘으면 스냅하지 않는다", () => {
+    const dragged = rect("a", 110, 0, 40, 20);
+    const other = rect("b", 100, 200, 40, 20);
+    const result = computeSnap(dragged, [other], 6);
+    expect(result.dx).toBe(0);
+    expect(result.guides).toEqual([]);
+  });
+
+  it("x·y축을 독립적으로 스냅한다", () => {
+    const dragged = rect("a", 3, 97, 40, 20);
+    const other = rect("b", 0, 100, 40, 20);
+    const result = computeSnap(dragged, [other]);
+    expect(result.dx).toBe(-3);
+    expect(result.dy).toBe(3);
+    expect(result.guides).toHaveLength(2);
+  });
+
+  it("여러 후보 중 가장 가까운 것 하나만 축마다 고른다", () => {
+    const dragged = rect("a", 0, 0, 40, 20);
+    const near = rect("near", 2, 0, 40, 20);
+    const far = rect("far", -5, 0, 40, 20);
+    const result = computeSnap(dragged, [far, near]);
+    expect(result.dx).toBe(2);
+  });
+
+  it("스냅 대상이 없으면 dx/dy 0에 빈 가이드", () => {
+    const dragged = rect("a", 0, 0);
+    const result = computeSnap(dragged, []);
+    expect(result).toEqual({ dx: 0, dy: 0, guides: [] });
   });
 });

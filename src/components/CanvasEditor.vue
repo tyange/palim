@@ -5,7 +5,9 @@ import {
   type AlignEdge,
   type AlignRect,
   alignEdge,
+  computeSnap,
   distribute,
+  type SnapGuide,
 } from "../core/align";
 import {
   bringToFront,
@@ -33,6 +35,7 @@ const selectedIds = ref<Set<string>>(new Set());
 const marquee = ref<{ x: number; y: number; w: number; h: number } | null>(
   null,
 );
+const snapGuides = ref<SnapGuide[]>([]);
 
 function registerFragEl(id: string, el: Element | null) {
   if (el) fragEls.set(id, el as HTMLElement);
@@ -136,6 +139,23 @@ function selectedRects(): AlignRect[] {
   return rects;
 }
 
+function rectsExcept(excludeIds: Set<string>): AlignRect[] {
+  const rects: AlignRect[] = [];
+  for (const f of fragments.value) {
+    if (excludeIds.has(f.id) || f.id === editingId.value) continue;
+    const el = fragEls.get(f.id);
+    if (!el) continue;
+    rects.push({
+      id: f.id,
+      x: f.x,
+      y: f.y,
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+    });
+  }
+  return rects;
+}
+
 function applyPositions(positions: Map<string, { x: number; y: number }>) {
   for (const [id, pos] of positions) {
     const idx = fragments.value.findIndex((f) => f.id === id);
@@ -225,6 +245,25 @@ function onFragPointerDown(e: PointerEvent, f: Fragment) {
   let moved = false;
   target.setPointerCapture(e.pointerId);
 
+  function groupBoundingRect(dxRaw: number, dyRaw: number): AlignRect | null {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const [id, origin] of origins) {
+      const el = fragEls.get(id);
+      if (!el) continue;
+      const x = origin.x + dxRaw;
+      const y = origin.y + dyRaw;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + el.offsetWidth);
+      maxY = Math.max(maxY, y + el.offsetHeight);
+    }
+    if (minX === Infinity) return null;
+    return { id: "", x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+
   function onMove(ev: PointerEvent) {
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
@@ -233,19 +272,33 @@ function onFragPointerDown(e: PointerEvent, f: Fragment) {
       store.snapshot();
     }
     if (!moved) return;
+
+    let snapDx = 0;
+    let snapDy = 0;
+    const movingRect = groupBoundingRect(dx, dy);
+    if (movingRect) {
+      const snap = computeSnap(movingRect, rectsExcept(group));
+      snapDx = snap.dx;
+      snapDy = snap.dy;
+      snapGuides.value = snap.guides;
+    } else {
+      snapGuides.value = [];
+    }
+
     for (const [id, origin] of origins) {
       const idx = fragments.value.findIndex((fx) => fx.id === id);
       if (idx === -1) continue;
       fragments.value[idx] = {
         ...fragments.value[idx],
-        x: Math.max(0, origin.x + dx),
-        y: Math.max(0, origin.y + dy),
+        x: Math.max(0, origin.x + dx + snapDx),
+        y: Math.max(0, origin.y + dy + snapDy),
       };
     }
   }
   function onUp() {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
+    snapGuides.value = [];
     if (!moved) {
       startEdit(f.id);
     } else {
@@ -375,6 +428,14 @@ onUnmounted(() => {
         height: `${marquee.h}px`,
       }"
     ></div>
+
+    <div
+      v-for="g in snapGuides"
+      :key="`${g.axis}-${g.pos}`"
+      class="snap-guide"
+      :class="g.axis"
+      :style="g.axis === 'x' ? { left: `${g.pos}px` } : { top: `${g.pos}px` }"
+    ></div>
   </div>
 </template>
 
@@ -438,5 +499,22 @@ onUnmounted(() => {
   border: 1px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   pointer-events: none;
+}
+
+.snap-guide {
+  position: absolute;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 60;
+}
+.snap-guide.x {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.snap-guide.y {
+  left: 0;
+  right: 0;
+  height: 1px;
 }
 </style>

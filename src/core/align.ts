@@ -88,3 +88,66 @@ export function distribute(
   }
   return result;
 }
+
+export interface SnapGuide {
+  axis: "x" | "y";
+  pos: number;
+}
+
+export interface SnapResult {
+  dx: number;
+  dy: number;
+  guides: SnapGuide[];
+}
+
+export function computeSnap(
+  rect: AlignRect,
+  others: AlignRect[],
+  threshold = 6,
+): SnapResult {
+  const xCandidates = [rect.x, rect.x + rect.w / 2, rect.x + rect.w];
+  const yCandidates = [rect.y, rect.y + rect.h / 2, rect.y + rect.h];
+
+  let bestDx = 0;
+  let bestDxMag = Infinity;
+  let bestXPos: number | null = null;
+  let bestDy = 0;
+  let bestDyMag = Infinity;
+  let bestYPos: number | null = null;
+
+  for (const other of others) {
+    const otherXs = [other.x, other.x + other.w / 2, other.x + other.w];
+    const otherYs = [other.y, other.y + other.h / 2, other.y + other.h];
+
+    for (const xc of xCandidates) {
+      for (const ox of otherXs) {
+        const d = ox - xc;
+        if (Math.abs(d) <= threshold && Math.abs(d) < bestDxMag) {
+          bestDxMag = Math.abs(d);
+          bestDx = d;
+          bestXPos = ox;
+        }
+      }
+    }
+    for (const yc of yCandidates) {
+      for (const oy of otherYs) {
+        const d = oy - yc;
+        if (Math.abs(d) <= threshold && Math.abs(d) < bestDyMag) {
+          bestDyMag = Math.abs(d);
+          bestDy = d;
+          bestYPos = oy;
+        }
+      }
+    }
+  }
+
+  const guides: SnapGuide[] = [];
+  if (bestXPos !== null) guides.push({ axis: "x", pos: bestXPos });
+  if (bestYPos !== null) guides.push({ axis: "y", pos: bestYPos });
+
+  return {
+    dx: bestXPos !== null ? bestDx : 0,
+    dy: bestYPos !== null ? bestDy : 0,
+    guides,
+  };
+}
