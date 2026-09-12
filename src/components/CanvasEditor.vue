@@ -108,7 +108,7 @@ function commitEdit() {
 }
 
 function onEditorKeydown(e: KeyboardEvent) {
-  if (e.key !== "Escape") return;
+  if (e.isComposing || e.key !== "Escape") return;
   e.preventDefault();
   (e.target as HTMLElement).blur();
 }

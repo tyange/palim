@@ -32,15 +32,19 @@
   (CM6·별도 라이브러리 없음). 근거·모델은 `docs/canvas-editor.md`.
   흐름 모드는 plain `<textarea>`.
 - 포매터 **oxfmt**, 린터 **oxlint** (ESLint/Prettier 아님). VSCode는 `oxc.oxc-vscode` 권장.
-- 테스트 **Vitest** (Vite 설정 공유). 테스트는 대상 옆에 `*.test.ts`로 co-locate.
+- 단위 테스트 **Vitest** (Vite 설정 공유). 테스트는 대상 옆에 `*.test.ts`로 co-locate.
+- **e2e 테스트 Playwright**(`e2e/*.spec.ts`, Chromium 전용). CI 연동은 아직 안 함(로컬
+  전용). 근거·함정은 `docs/e2e-testing.md`.
 
 ```bash
 bun install
-bun run dev       # Vite 개발 서버 (port 5173)
-bun run build     # vue-tsc 타입체크 → vite 빌드
+bun run dev           # Vite 개발 서버 (port 5173)
+bun run build         # vue-tsc 타입체크 → vite 빌드
 bun run preview
-bun run test      # Vitest watch 모드
-bun run test:run  # Vitest 1회 실행 (CI)
+bun run test          # Vitest watch 모드
+bun run test:run      # Vitest 1회 실행 (CI)
+bun run test:e2e      # Playwright e2e 1회 실행(최초 1회 `bunx playwright install chromium`)
+bun run test:e2e:ui   # Playwright UI 모드(디버깅)
 ```
 
 ## 아키텍처 — 모드별 독립 진실원천
@@ -60,8 +64,7 @@ mode: "grid" | "flow"
 - `core/fragments.ts` — **DOM·Vue를 모르는 순수 TS**: `bringToFront`(배열 맨 뒤로 옮겨
   맨 위로 쌓기), `removeById`, `cloneFragments`(undo 스냅샷용 얕은 복제), `nudge`
   (선택 조각들을 델타만큼 이동, 0에서 클램프), `duplicateSelected`(오프셋 복제,
-  id 생성은 콜백 주입). 단위 테스트는
-  `fragments.test.ts`.
+  id 생성은 콜백 주입). 단위 테스트는 `fragments.test.ts`.
 - 겹칠 수 있는 배치를 평문 한 줄로 표현할 방법이 없어 `fragments` ⇄ `text` 변환은
   **정의되지 않는다**. 모드 토글은 그냥 두 문서를 오갈 뿐, 내용이 서로 옮겨가지 않는다.
   자세한 근거·트레이드오프는 `docs/canvas-editor.md`.
@@ -119,6 +122,9 @@ mode: "grid" | "flow"
   에서만 읽어 커밋. 빈 텍스트로 커밋하면 조각 삭제.
 - Safari 함정: 드래그 중 네이티브 텍스트 선택이 끼어드는 문제 — `pointerdown`에
   `preventDefault()` + `.frag`에 `user-select: none`(`-webkit-` 포함)으로 막는다.
+- Esc는 `e.isComposing`일 때 가로채지 않는다 — IME 조합 중 Esc까지 blur로 처리하면
+  "IME는 브라우저에 맡긴다"는 전제를 스스로 어기게 된다(e2e로 재현·수정한 실제
+  버그, `docs/e2e-testing.md`).
 - 빈 곳 드래그로 다중 선택(marquee) → 그룹 드래그 이동, Delete/Backspace로 그룹 삭제,
   2개 이상 선택 시 뜨는 `SelectionToolbar.vue`로 정렬/균등 배치. Shift/Cmd+클릭 추가
   선택은 없음(마키만) — 배경 클릭이 이미 "조각 생성"이라 조작을 드래그로 완전히
@@ -165,7 +171,8 @@ mode: "grid" | "flow"
 - (아카이브) `archive/svg-grid-editor/` — SVG 격자 편집 표면 1세대 + IME 버그 분석
 - (아카이브) `archive/discrete-grid-editor/` — CM6 + 좌표 맵 이산 격자 편집 표면 2세대(`grid-editor.md` 포함)
 - `docs/ui-primitives.md` — 셸 UI의 Reka UI headless 프리미티브 채택·규칙·스코프 CSS 함정
-- `docs/TODO-e2e-testing.md` — e2e 보류 결정 + 한글 IME 재현 가능 러너 조사(Playwright+CDP)
+- `docs/e2e-testing.md` — Playwright e2e 도입 근거·범위·함정, 한글 IME 재현 가능
+  러너 조사(CDP)
 
 ## 컨벤션
 
@@ -188,9 +195,14 @@ mode: "grid" | "flow"
   있다. **배치 규칙을
   바꾸면 같은 PR에서 테스트도 갱신한다.**
 - `bun run build`가 `vue-tsc` 타입체크를 겸하므로 타입 회귀는 여기서 잡힌다.
-- IME/캐럿 회귀는 Vitest로 잡기 어렵다(브라우저 IME 의존). `bun run dev`(port 5173)로
-  띄운 뒤 입력 시퀀스를 직접 재현하고 콘솔에서 코드포인트를 덤프해 확인한다
-  (아카이브된 `archive/svg-grid-editor/korean-ime-bug.md` 참고).
+- **e2e(Playwright, `e2e/`)**: 클릭·드래그·키보드 단축키 같은 상호작용 계층은
+  여기서 검증한다(생성/편집/삭제, 마키 다중 선택, undo/redo, 복제, 넛지, 정렬,
+  모드 전환, 미리보기). `bun run test:e2e`. 새 상호작용을 추가하면 같은 PR에서
+  해당 spec도 갱신한다. 근거·함정은 `docs/e2e-testing.md`.
+- IME/캐럿 회귀는 e2e로도 완전히는 못 잡는다(브라우저 IME 의존, `docs/
+e2e-testing.md`의 한계 참고). `bun run dev`(port 5173)로 띄운 뒤 입력
+  시퀀스를 직접 재현하고 콘솔에서 코드포인트를 덤프해 확인한다(아카이브된
+  `archive/svg-grid-editor/korean-ime-bug.md` 참고).
 
 ## 배포
 
