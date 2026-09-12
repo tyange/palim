@@ -7,7 +7,12 @@ import {
   alignEdge,
   distribute,
 } from "../core/align";
-import { bringToFront, type Fragment, removeById } from "../core/fragments";
+import {
+  bringToFront,
+  type Fragment,
+  nudge,
+  removeById,
+} from "../core/fragments";
 import { useEditorUiStore } from "../stores/editorUi";
 import { CANVAS, useManuscriptStore } from "../stores/manuscript";
 import SelectionToolbar from "./SelectionToolbar.vue";
@@ -250,6 +255,15 @@ function onFragPointerDown(e: PointerEvent, f: Fragment) {
   window.addEventListener("pointerup", onUp);
 }
 
+const NUDGE_KEYS: Record<string, [number, number]> = {
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+};
+let nudging = false;
+let nudgeIdleTimer: ReturnType<typeof setTimeout> | null = null;
+
 function onKeydown(e: KeyboardEvent) {
   if (editingId.value !== null) return;
   if (ui.paletteOpen || ui.previewOpen) return;
@@ -272,11 +286,30 @@ function onKeydown(e: KeyboardEvent) {
     store.snapshot();
     for (const id of selectedIds.value) removeById(fragments.value, id);
     selectedIds.value = new Set();
+    return;
+  }
+  if (e.key in NUDGE_KEYS) {
+    e.preventDefault();
+    if (!nudging) {
+      nudging = true;
+      store.snapshot();
+    }
+    if (nudgeIdleTimer !== null) clearTimeout(nudgeIdleTimer);
+    nudgeIdleTimer = setTimeout(() => {
+      nudging = false;
+      nudgeIdleTimer = null;
+    }, 500);
+    const step = e.shiftKey ? 10 : 1;
+    const [dx, dy] = NUDGE_KEYS[e.key];
+    nudge(fragments.value, selectedIds.value, dx * step, dy * step);
   }
 }
 
 onMounted(() => document.addEventListener("keydown", onKeydown));
-onUnmounted(() => document.removeEventListener("keydown", onKeydown));
+onUnmounted(() => {
+  document.removeEventListener("keydown", onKeydown);
+  if (nudgeIdleTimer !== null) clearTimeout(nudgeIdleTimer);
+});
 </script>
 
 <template>

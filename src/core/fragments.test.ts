@@ -3,11 +3,12 @@ import {
   bringToFront,
   cloneFragments,
   type Fragment,
+  nudge,
   removeById,
 } from "./fragments";
 
-function make(id: string): Fragment {
-  return { id, x: 0, y: 0, text: id };
+function make(id: string, x = 0, y = 0): Fragment {
+  return { id, x, y, text: id };
 }
 
 describe("bringToFront", () => {
@@ -58,5 +59,33 @@ describe("cloneFragments", () => {
     const clone = cloneFragments(original);
     clone[0].text = "바뀜";
     expect(original[0].text).toBe("a");
+  });
+});
+
+describe("nudge", () => {
+  it("선택된 조각만 델타만큼 옮긴다", () => {
+    const fragments = [make("a", 10, 10), make("b", 20, 20)];
+    nudge(fragments, new Set(["a"]), 5, -3);
+    expect(fragments[0]).toMatchObject({ x: 15, y: 7 });
+    expect(fragments[1]).toMatchObject({ x: 20, y: 20 });
+  });
+
+  it("여러 조각을 한 번에 옮길 수 있다", () => {
+    const fragments = [make("a", 10, 10), make("b", 20, 20)];
+    nudge(fragments, new Set(["a", "b"]), 1, 1);
+    expect(fragments[0]).toMatchObject({ x: 11, y: 11 });
+    expect(fragments[1]).toMatchObject({ x: 21, y: 21 });
+  });
+
+  it("좌표가 음수가 되지 않도록 0에서 클램프한다", () => {
+    const fragments = [make("a", 2, 2)];
+    nudge(fragments, new Set(["a"]), -10, -10);
+    expect(fragments[0]).toMatchObject({ x: 0, y: 0 });
+  });
+
+  it("없는 id는 조용히 무시한다", () => {
+    const fragments = [make("a", 5, 5)];
+    nudge(fragments, new Set(["z"]), 1, 1);
+    expect(fragments[0]).toMatchObject({ x: 5, y: 5 });
   });
 });

@@ -58,7 +58,8 @@ mode: "grid" | "flow"
 ```
 
 - `core/fragments.ts` — **DOM·Vue를 모르는 순수 TS**: `bringToFront`(배열 맨 뒤로 옮겨
-  맨 위로 쌓기), `removeById`, `cloneFragments`(undo 스냅샷용 얕은 복제). 단위 테스트는
+  맨 위로 쌓기), `removeById`, `cloneFragments`(undo 스냅샷용 얕은 복제), `nudge`
+  (선택 조각들을 델타만큼 이동, 0에서 클램프). 단위 테스트는
   `fragments.test.ts`.
 - 겹칠 수 있는 배치를 평문 한 줄로 표현할 방법이 없어 `fragments` ⇄ `text` 변환은
   **정의되지 않는다**. 모드 토글은 그냥 두 문서를 오갈 뿐, 내용이 서로 옮겨가지 않는다.
@@ -75,7 +76,7 @@ mode: "grid" | "flow"
 
 | 파일                              | 책임 / 알아둘 점                                                                                                                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core/fragments.ts`               | `bringToFront`(맨 뒤=맨 위로 쌓기)·`removeById`·`cloneFragments` — 조각 배열에 대한 순수 로직                                                                                    |
+| `core/fragments.ts`               | `bringToFront`(맨 뒤=맨 위로 쌓기)·`removeById`·`cloneFragments`·`nudge` — 조각 배열에 대한 순수 로직                                                                            |
 | `core/align.ts`                   | `alignEdge`·`distribute` — 좌표·크기만 받아 정렬/균등 배치 결과를 계산하는 순수 로직(DOM 실측은 호출부 책임)                                                                     |
 | `core/history.ts`                 | `History<T>` — past/future 두 스택만 다루는 범용 undo/redo. 값이 뭔지·어떻게 복제하는지 모름(호출부 책임)                                                                        |
 | `stores/manuscript.ts`            | `fragments`(격자 모드 진실원천) + `text`(흐름 모드 진실원천, 서로 독립) + `mode` ref + `CANVAS`·`FLOW` 상수                                                                      |
@@ -126,7 +127,10 @@ mode: "grid" | "flow"
   편집 중(`editingId !== null`)엔 가로채지 않아 `contenteditable`의 네이티브 글자
   단위 undo와 안 섞인다. `structuredClone`은 Vue 반응형 Proxy에 못 써서 얕은 스프레드
   복제(`cloneFragments`)를 쓴다 — 상세·함정은 `docs/canvas-editor.md`.
-- 방향키 넛지는 아직 없음(CM6가 공짜로 주던 것 중 마지막 남은 트레이드오프).
+- **방향키 넛지**: 선택된 조각(들)을 방향키로 1px, Shift+방향키로 10px 이동
+  (`core/fragments.ts`의 `nudge`). 연타/길게 누름은 500ms 유휴 타이머로 한
+  undo 단계로 묶는다(매 keydown마다 스냅샷 찍지 않음) — 근거는
+  `docs/canvas-editor.md`.
 - 자세한 근거·데이터 모델·잃은 것은 `docs/canvas-editor.md`. 시안:
   `design-system/mockups/palim/freeform-canvas-directions.html`.
 
@@ -171,7 +175,7 @@ mode: "grid" | "flow"
 
 - **단위 테스트(Vitest)**: 조각 배열·정렬·히스토리 로직은 `core/`에 순수 TS로 모여
   있어 단위 테스트로 검증한다. `fragments.test.ts`(`bringToFront`/`removeById`/
-  `cloneFragments`), `align.test.ts`(`alignEdge`/`distribute`), `history.test.ts`
+  `cloneFragments`/`nudge`), `align.test.ts`(`alignEdge`/`distribute`), `history.test.ts`
   (`History` push/undo/redo)가 있다. **배치 규칙을 바꾸면 같은 PR에서 테스트도 갱신한다.**
 - `bun run build`가 `vue-tsc` 타입체크를 겸하므로 타입 회귀는 여기서 잡힌다.
 - IME/캐럿 회귀는 Vitest로 잡기 어렵다(브라우저 IME 의존). `bun run dev`(port 5173)로

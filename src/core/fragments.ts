@@ -20,3 +20,16 @@ export function removeById(fragments: Fragment[], id: string): void {
 export function cloneFragments(fragments: Fragment[]): Fragment[] {
   return fragments.map((f) => ({ ...f }));
 }
+
+export function nudge(
+  fragments: Fragment[],
+  ids: Set<string>,
+  dx: number,
+  dy: number,
+): void {
+  for (let i = 0; i < fragments.length; i++) {
+    const f = fragments[i];
+    if (!ids.has(f.id)) continue;
+    fragments[i] = { ...f, x: Math.max(0, f.x + dx), y: Math.max(0, f.y + dy) };
+  }
+}
