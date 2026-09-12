@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   bringToFront,
   cloneFragments,
+  duplicateSelected,
   type Fragment,
   nudge,
   removeById,
@@ -87,5 +88,50 @@ describe("nudge", () => {
     const fragments = [make("a", 5, 5)];
     nudge(fragments, new Set(["z"]), 1, 1);
     expect(fragments[0]).toMatchObject({ x: 5, y: 5 });
+  });
+});
+
+describe("duplicateSelected", () => {
+  function idFactory(prefix: string) {
+    let seq = 0;
+    return () => `${prefix}${++seq}`;
+  }
+
+  it("선택된 조각만 오프셋을 더해 배열 끝에 복제한다(맨 위로 쌓임)", () => {
+    const fragments = [make("a", 10, 10), make("b", 20, 20)];
+    const newIds = duplicateSelected(fragments, new Set(["a"]), idFactory("n"));
+    expect(newIds).toEqual(["n1"]);
+    expect(fragments).toHaveLength(3);
+    expect(fragments[2]).toMatchObject({ id: "n1", x: 26, y: 26, text: "a" });
+  });
+
+  it("여러 조각을 한 번에 복제하고 새 id들을 순서대로 반환한다", () => {
+    const fragments = [make("a", 0, 0), make("b", 5, 5)];
+    const newIds = duplicateSelected(
+      fragments,
+      new Set(["a", "b"]),
+      idFactory("n"),
+    );
+    expect(newIds).toEqual(["n1", "n2"]);
+    expect(fragments).toHaveLength(4);
+  });
+
+  it("오프셋을 지정할 수 있다", () => {
+    const fragments = [make("a", 0, 0)];
+    duplicateSelected(fragments, new Set(["a"]), idFactory("n"), 5, -5);
+    expect(fragments[1]).toMatchObject({ x: 5, y: -5 });
+  });
+
+  it("원본은 그대로 남고 복제본만 새로 추가된다", () => {
+    const fragments = [make("a", 0, 0)];
+    duplicateSelected(fragments, new Set(["a"]), idFactory("n"));
+    expect(fragments[0]).toMatchObject({ id: "a", x: 0, y: 0 });
+  });
+
+  it("없는 id는 무시하고 빈 배열을 반환한다", () => {
+    const fragments = [make("a", 0, 0)];
+    const newIds = duplicateSelected(fragments, new Set(["z"]), idFactory("n"));
+    expect(newIds).toEqual([]);
+    expect(fragments).toHaveLength(1);
   });
 });

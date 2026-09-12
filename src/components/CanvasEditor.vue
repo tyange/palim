@@ -9,6 +9,7 @@ import {
 } from "../core/align";
 import {
   bringToFront,
+  duplicateSelected,
   type Fragment,
   nudge,
   removeById,
@@ -286,6 +287,15 @@ function onKeydown(e: KeyboardEvent) {
     store.snapshot();
     for (const id of selectedIds.value) removeById(fragments.value, id);
     selectedIds.value = new Set();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+    e.preventDefault();
+    store.snapshot();
+    const newIds = duplicateSelected(fragments.value, selectedIds.value, () =>
+      store.fragId(),
+    );
+    selectedIds.value = new Set(newIds);
     return;
   }
   if (e.key in NUDGE_KEYS) {

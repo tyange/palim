@@ -33,3 +33,20 @@ export function nudge(
     fragments[i] = { ...f, x: Math.max(0, f.x + dx), y: Math.max(0, f.y + dy) };
   }
 }
+
+export function duplicateSelected(
+  fragments: Fragment[],
+  ids: Set<string>,
+  makeId: () => string,
+  dx = 16,
+  dy = 16,
+): string[] {
+  const toDuplicate = fragments.filter((f) => ids.has(f.id));
+  const newIds: string[] = [];
+  for (const f of toDuplicate) {
+    const id = makeId();
+    fragments.push({ id, x: f.x + dx, y: f.y + dy, text: f.text });
+    newIds.push(id);
+  }
+  return newIds;
+}
