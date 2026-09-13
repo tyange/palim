@@ -143,3 +143,27 @@ test("2개 이상 선택 시 뜨는 정렬 툴바로 왼쪽 정렬을 적용할 
     .evaluateAll((els) => els.map((el) => (el as HTMLElement).style.left));
   expect(new Set(lefts).size).toBe(1);
 });
+
+test("좁은 뷰포트에서도 조각이 글자 폭 그대로 가로로 렌더된다(세로로 안 깨진다)", async ({
+  page,
+}) => {
+  // 프로덕션에서 실제로 겪은 회귀: .frag에 명시적 width가 없으면 절대 위치
+  // 요소의 shrink-to-fit 폭이 "그 지점부터 부모 오른쪽 끝까지 남은 공간"
+  // 기준으로 계산된다. 뷰포트가 좁아 조각의 x가 이미 캔버스 폭을 넘으면 그
+  // 남은 공간이 음수가 되어 폭이 한 글자 수준으로 깨지고, white-space:
+  // pre-wrap이 매 글자마다 줄바꿈해 세로쓰기처럼 보인다(docs/canvas-editor.md).
+  await page.setViewportSize({ width: 390, height: 844 });
+  // 조각(430,60)의 폭(약 178px)이 뷰포트(390px)를 넘어서게, 캔버스 안에서
+  // 아주 오른쪽으로 몰아 재현 조건을 확실히 만든다.
+  const frag = page.locator(".frag", { hasText: "간과하는 것들로부터" });
+  const box = (await frag.boundingBox())!;
+  await page.mouse.move(box.x + 5, box.y + 5);
+  await page.mouse.down();
+  await page.mouse.move(370, box.y + 5, { steps: 10 });
+  await page.mouse.up();
+
+  const width = await frag.evaluate((el) => getComputedStyle(el).width);
+  // 폭이 실측 글자 폭(수십~백여 px)이어야 한다 — 붕괴하면 1~2글자 폭(20~30px)
+  // 근처로 잘린다.
+  expect(parseFloat(width)).toBeGreaterThan(100);
+});

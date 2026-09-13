@@ -458,6 +458,7 @@ onUnmounted(() => {
 
 .frag {
   position: absolute;
+  width: max-content;
   max-width: 420px;
   padding: 2px 4px;
   white-space: pre-wrap;
@@ -482,6 +483,7 @@ onUnmounted(() => {
 
 .frag-editor {
   position: absolute;
+  width: max-content;
   min-width: 2ch;
   max-width: 420px;
   padding: 2px 4px;

@@ -58,6 +58,16 @@ fragments: Fragment[]  // 배열 순서 = 쌓임 순서(나중 = 위)
 - **드래그 시 텍스트 선택 함정**: `pointerdown`에 `preventDefault()`가 없으면
   브라우저 기본 드래그-선택이 같이 시작되고, 특히 Safari에서 두드러진다. `.frag`에
   `user-select: none`(`-webkit-` 접두사 포함)도 같이 건다.
+- **좁은 화면에서 조각이 한 글자씩 세로로 깨지는 함정**: `.frag`/`.frag-editor`엔
+  반드시 `width: max-content`가 있어야 한다. `position: absolute` + `left`만 있고
+  (`right` 없이) `width`가 `auto`인 요소의 shrink-to-fit 폭은 "그 `left` 지점부터
+  containing block(`.canvas`) 오른쪽 끝까지 남은 공간" 기준으로 계산된다 — 뷰포트가
+  좁아 조각의 `x`가 이미 `.canvas` 폭을 넘으면 그 남은 공간이 음수가 되고, 브라우저는
+  폭을 거의 한두 글자 수준으로 잘라버린다. `white-space: pre-wrap`이 그 좁은 폭에서
+  매 글자마다 줄바꿈해 세로쓰기처럼 보인다 — 실제로 모바일 뷰포트 프로덕션에서
+  겪은 회귀(`e2e/canvas-editor.spec.ts`의 "좁은 뷰포트..." 테스트가 지킨다). CM6
+  시절 `.cm-content`에도 같은 이유로 `width: max-content`를 썼던 전례가 있다
+  (`archive/discrete-grid-editor/grid-editor.md`).
 
 ## 렌더 (`stores/manuscript.ts`의 `CANVAS` 상수)
 
