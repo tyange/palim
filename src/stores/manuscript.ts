@@ -46,18 +46,42 @@ function fragId(): string {
 }
 
 function defaultFragments(): Fragment[] {
-  return [
+  const poem = [
     { x: 40, y: 30, text: "나는 화자가 아니다" },
-    { x: 60, y: 90, text: "나는 인터넷" },
-    { x: 150, y: 100, text: "그리고 신체" },
-    { x: 430, y: 60, text: "간과하는 것들로부터" },
-    { x: 470, y: 150, text: "자유로울 수 없다" },
-    { x: 460, y: 145, text: "간과하는" },
-    { x: 120, y: 260, text: "여전히\n가장\n중요한 것을" },
-    { x: 620, y: 320, text: "마음 깊숙이는" },
-    { x: 640, y: 340, text: "받아들이지 못하고" },
-    { x: 90, y: 420, text: "'현재형 일기' 중에서, 배시은" },
-  ].map((f) => ({ id: fragId(), ...f }));
+    { x: 384, y: 30, text: "나는 인터넷" },
+    { x: 40, y: 68, text: "그리고 신체에 대한" },
+    { x: 320, y: 68, text: "생각을 멈출 수 없다" },
+    { x: 40, y: 106, text: "어떤 사실은 알려져 있고" },
+    { x: 384, y: 106, text: "어떤 사실은" },
+    { x: 40, y: 144, text: "알려져 있지 않다" },
+    { x: 384, y: 144, text: "나는 의견을" },
+    { x: 40, y: 182, text: "가질 수 없다 의견을 갖는 순간" },
+    { x: 403, y: 182, text: "그 의견이" },
+    { x: 40, y: 220, text: "간과하는 것들로부터" },
+    { x: 343, y: 220, text: "자유로울 수 없다" },
+    { x: 40, y: 258, text: "나는 화자가 아니다" },
+    { x: 324, y: 258, text: "나는 화자의 번외도" },
+    { x: 40, y: 296, text: "아니다 나는 그 어떤 것들과도" },
+    { x: 408, y: 296, text: "무관하다" },
+    { x: 40, y: 334, text: "나는 여전히 가장 중요한 것을" },
+    { x: 444, y: 334, text: "마음" },
+    { x: 40, y: 372, text: "깊숙이는 받아들이지 못하고 있는" },
+    { x: 463, y: 372, text: "것" },
+    { x: 40, y: 410, text: "같으며 그렇다고 그것에 대해 더" },
+    { x: 444, y: 410, text: "알려" },
+    { x: 40, y: 448, text: "하고 있지도 않다 내가 하고 싶은" },
+    { x: 426, y: 448, text: "말들은" },
+    { x: 40, y: 486, text: "이제 꺼내어 사람들 사이에" },
+    { x: 408, y: 486, text: "두기에는" },
+    { x: 40, y: 524, text: "적절치 못하게 되었다" },
+    { x: 249, y: 578, text: "          '현재형 일기' 중에서," },
+    { x: 249, y: 616, text: "           배시은 시집 <소공포>" },
+  ];
+  const width = 481 - 40;
+  const height = 616 + CANVAS.fontSize * CANVAS.lineHeight - 30;
+  const dx = Math.max(16, Math.round((window.innerWidth - width) / 2)) - 40;
+  const dy = Math.max(16, Math.round((window.innerHeight - height) / 2)) - 30;
+  return poem.map((f) => ({ id: fragId(), ...f, x: f.x + dx, y: f.y + dy }));
 }
 
 export type WritingMode = "grid" | "flow";
