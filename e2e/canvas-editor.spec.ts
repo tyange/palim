@@ -167,3 +167,49 @@ test("좁은 뷰포트에서도 조각이 글자 폭 그대로 가로로 렌더�
   // 근처로 잘린다.
   expect(parseFloat(width)).toBeGreaterThan(100);
 });
+
+test("편집 중 Tab으로 라벨 입력으로 넘어가 #태그를 붙이면 조각 아래에 표시된다", async ({
+  page,
+}) => {
+  await page.locator(".canvas").click({ position: { x: 800, y: 500 } });
+  await page.locator(".frag-editor").waitFor();
+  await page.keyboard.type("나는 사랑을 모른다");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("사랑");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("#to be");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".frag-editor")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.locator(".frag-editor").waitFor({ state: "detached" });
+  const labels = page
+    .locator(".frag", { hasText: "나는 사랑을 모른다" })
+    .locator(".frag-labels");
+  await expect(labels).toHaveText("#사랑#to_be");
+});
+
+test("라벨만 바꿔도 변경으로 커밋되고 undo로 되돌아간다", async ({ page }) => {
+  await page.locator(".frag", { hasText: "나는 인터넷" }).click();
+  await page.locator(".frag-editor").waitFor();
+  await page.locator(".label-field").click();
+  await page.keyboard.type("인터넷");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await page.locator(".frag-editor").waitFor({ state: "detached" });
+  const frag = page.locator(".frag", { hasText: "나는 인터넷" });
+  await expect(frag.locator(".frag-labels")).toHaveText("#인터넷");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(frag.locator(".frag-labels")).toHaveCount(0);
+});
+
+test("입력창에 남은 라벨 글자도 blur 때 태그로 확정된다", async ({ page }) => {
+  await page.locator(".frag", { hasText: "나는 인터넷" }).click();
+  await page.locator(".frag-editor").waitFor();
+  await page.locator(".label-field").click();
+  await page.keyboard.type("무지");
+  await page.keyboard.press("Escape");
+  await page.locator(".frag-editor").waitFor({ state: "detached" });
+  await expect(
+    page.locator(".frag", { hasText: "나는 인터넷" }).locator(".frag-labels"),
+  ).toHaveText("#무지");
+});

@@ -14,6 +14,7 @@ import {
   VisuallyHidden,
 } from "reka-ui";
 import { computed, ref, watch } from "vue";
+import { useDocumentFile } from "../composables/useDocumentFile";
 import { useTheme } from "../composables/useTheme";
 import { useEditorUiStore } from "../stores/editorUi";
 import { useManuscriptStore } from "../stores/manuscript";
@@ -29,6 +30,7 @@ const { mode } = storeToRefs(useManuscriptStore());
 const ui = useEditorUiStore();
 const { paletteOpen, typewriter, previewOpen } = storeToRefs(ui);
 const { isDark, toggle: toggleTheme } = useTheme();
+const { saveDocument, openDocument } = useDocumentFile();
 
 const query = ref("");
 const picked = ref<string | null>(null);
@@ -44,6 +46,16 @@ const commands = computed<Command[]>(() => [
     label: previewOpen.value ? "미리보기 닫기" : "미리보기 열기",
     hint: "⌘↵",
     run: () => ui.togglePreview(),
+  },
+  {
+    id: "save-document",
+    label: "문서 저장 (.palim.json)",
+    run: saveDocument,
+  },
+  {
+    id: "open-document",
+    label: "문서 불러오기…",
+    run: openDocument,
   },
   {
     id: "typewriter",

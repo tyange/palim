@@ -9,7 +9,7 @@ import {
 } from "./fragments";
 
 function make(id: string, x = 0, y = 0): Fragment {
-  return { id, x, y, text: id };
+  return { id, x, y, text: id, labels: [] };
 }
 
 describe("bringToFront", () => {
@@ -60,6 +60,13 @@ describe("cloneFragments", () => {
     const clone = cloneFragments(original);
     clone[0].text = "바뀜";
     expect(original[0].text).toBe("a");
+  });
+
+  it("labels 배열도 새 참조로 복사한다", () => {
+    const original = [{ ...make("a"), labels: ["사랑"] }];
+    const clone = cloneFragments(original);
+    clone[0].labels.push("무지");
+    expect(original[0].labels).toEqual(["사랑"]);
   });
 });
 
@@ -114,6 +121,14 @@ describe("duplicateSelected", () => {
     );
     expect(newIds).toEqual(["n1", "n2"]);
     expect(fragments).toHaveLength(4);
+  });
+
+  it("라벨도 함께 복제하되 원본과 배열을 공유하지 않는다", () => {
+    const fragments = [{ ...make("a"), labels: ["사랑"] }];
+    duplicateSelected(fragments, new Set(["a"]), idFactory("n"));
+    expect(fragments[1].labels).toEqual(["사랑"]);
+    fragments[1].labels.push("무지");
+    expect(fragments[0].labels).toEqual(["사랑"]);
   });
 
   it("오프셋을 지정할 수 있다", () => {

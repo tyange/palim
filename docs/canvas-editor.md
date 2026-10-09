@@ -24,7 +24,9 @@
 ## 데이터 모델 (`stores/manuscript.ts`)
 
 ```ts
-interface Fragment { id: string; x: number; y: number; text: string }
+interface Fragment {
+  id: string; x: number; y: number; text: string; labels: string[]
+}
 fragments: Fragment[]  // 배열 순서 = 쌓임 순서(나중 = 위)
 ```
 
@@ -208,3 +210,46 @@ fragments: Fragment[]  // 배열 순서 = 쌓임 순서(나중 = 위)
 - **모드 전환 시 내용 보존 안 됨**: `fragments`와 흐름 모드 `text`가 서로 독립이라,
   격자 ↔ 흐름을 오가도 상대 모드의 내용이 바뀌지 않는다(이전엔 같은 텍스트를 두
   모습으로 보여줬지만 이제는 애초에 변환이 안 되는 두 개의 문서다).
+
+## 라벨 (`core/labels.ts`, `core/document.ts`)
+
+- **조각마다 해시태그형 라벨**(`Fragment.labels: string[]`). 텍스트 *바깥*의 메타데이터라
+  조각 `text`·미리보기·SVG/PNG 내보내기에는 영향이 없다(내보내기엔 라벨을 안 찍는다).
+- **AST가 아니라 평평한 stand-off 주석**: AST는 문법이 있는 텍스트를 트리로 파싱할 때
+  쓰는 것이고, 여기선 조각이 이미 독립 단위라 라벨은 그 조각에 붙은 문자열 목록이면
+  충분하다. 역색인(라벨 → 조각들)이 필요해지면 저장하지 않고 `fragments`에서 **파생**한다
+  — 진실원천이 둘이 되면 어긋나기 때문.
+- **입력 UI**: 조각을 클릭해 편집에 들어가면 텍스트 박스 바로 아래에 Reka `TagsInput`이
+  뜬다(`.edit-box` = `contenteditable` + 태그 입력을 묶은 래퍼). 텍스트에서 **Tab**으로
+  라벨 입력으로 넘어가고(Enter는 텍스트 줄바꿈이라 쓸 수 없음), Enter로 태그 확정,
+  빈 입력에서 Backspace로 마지막 태그 삭제. 편집이 아닐 땐 조각 아래에 `#라벨`이
+  작게 보인다(`.frag-labels`, `position: absolute`라 `offsetWidth/Height`에 안 잡혀
+  정렬·스냅·마키 히트테스트가 그대로이고 `pointer-events: none`).
+- **커밋 단위가 텍스트와 같다**: 편집 세션 동안 라벨은 `editingLabels` 로컬 ref에 쌓고
+  `commitEdit`에서 텍스트와 함께 한 번에 반영 — 텍스트가 같아도 라벨이 달라졌으면
+  변경으로 보고 스냅샷을 찍는다(undo 한 단계). 새 조각이 빈 텍스트면 라벨도 버려진다.
+- **포커스 함정**: 예전엔 `contenteditable`의 `blur`가 곧 커밋이었는데, 라벨 입력으로
+  포커스가 옮겨가면 커밋돼 버린다. 그래서 커밋은 래퍼의 `focusout`에서
+  `relatedTarget`이 래퍼 안이면 무시하는 방식이고, 래퍼 안 비입력 영역 `mousedown`은
+  `preventDefault`로 포커스를 지킨다. Esc는 래퍼에서 받아 현재 요소를 blur한다. 입력창에
+  글자만 남기고 나가면(Reka `add-on-blur`는 커밋과 순서가 안 맞아 쓰지 않고)
+  `focusout`에서 `.label-field` 값을 직접 라벨에 합쳐 커밋한다.
+- **정규화**(`normalizeLabel`): 앞의 `#` 제거, 양끝 공백 제거, 내부 공백·쉼표는 `_`
+  하나로(`to be or not` → `to_be_or_not`), 빈 것·중복 제거(첫 등장 순서 유지).
+- **복제·undo**: `duplicateSelected`/`cloneFragments`가 `labels` 배열도 복사한다
+  (스냅샷·복제본이 원본과 배열을 공유하면 한쪽 수정이 새어 나간다).
+
+## 문서 저장·불러오기 (`core/document.ts`, `composables/useDocumentFile.ts`)
+
+- 지금까지 palim은 **새로고침하면 모두 사라지는 메모리 전용**이었다. 이번엔 서버·DB
+  없이 **파일**로만 저장한다: ⌘K → "문서 저장 (.palim.json)" / "문서 불러오기…".
+  localStorage 자동저장은 아직 없다(필요해지면 `serializeDocument` 결과를 그대로 쓰면 됨).
+- 포맷(`version: 1`): `{ format: "palim", version, grid: { fragments: [{x,y,text,labels}] },
+flow: { text } }`. 두 모드는 서로 독립 문서라 둘 다 담는다. **id는 저장하지 않는다** —
+  불러올 때 `fragId()`로 새로 부여해 이후 생성 id와 충돌하지 않게 한다. 배열 순서 =
+  쌓임 순서라 순서만 보존하면 된다.
+- `parseDocument`는 형식·버전·필드 타입을 검증하고(더 새로운 버전은 거부), `labels`가
+  없는 옛 문서도 빈 배열로 읽으며 라벨은 읽을 때도 다시 정규화한다. 좌표는 0에서
+  클램프. 실패 시 토스트로 사유를 알린다.
+- 불러오기는 `store.replaceDocument`가 **스냅샷을 먼저 찍고** 교체하므로 ⌘Z로 불러오기
+  직전 격자 상태로 돌아갈 수 있다(흐름 `text`는 textarea 네이티브 undo 영역).

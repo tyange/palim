@@ -57,7 +57,7 @@ function defaultFragments(): Fragment[] {
     { x: 620, y: 320, text: "마음 깊숙이는" },
     { x: 640, y: 340, text: "받아들이지 못하고" },
     { x: 90, y: 420, text: "'현재형 일기' 중에서, 배시은" },
-  ].map((f) => ({ id: fragId(), ...f }));
+  ].map((f) => ({ id: fragId(), labels: [], ...f }));
 }
 
 export type WritingMode = "grid" | "flow";
@@ -89,6 +89,12 @@ export const useManuscriptStore = defineStore("manuscript", () => {
     syncHistoryFlags();
   }
 
+  function replaceDocument(nextFragments: Fragment[], nextText: string) {
+    snapshot();
+    fragments.value = nextFragments;
+    text.value = nextText;
+  }
+
   return {
     text,
     fragments,
@@ -98,6 +104,7 @@ export const useManuscriptStore = defineStore("manuscript", () => {
     snapshot,
     undo,
     redo,
+    replaceDocument,
     canUndo,
     canRedo,
   };

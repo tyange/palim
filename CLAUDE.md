@@ -54,7 +54,7 @@ bun run test:e2e:ui   # Playwright UI 모드(디버깅)
 
 ```
 mode: "grid" | "flow"
-  ├─ grid:  fragments: Fragment[]   { id, x, y, text }[], 연속 좌표, 배열 순서 = 쌓임 순서
+  ├─ grid:  fragments: Fragment[]   { id, x, y, text, labels }[], 연속 좌표, 배열 순서 = 쌓임 순서
   │         CanvasEditor.vue         조각별 contenteditable(편집 중인 것만)
   │         CanvasPreview.vue        조각의 (x,y)에 그대로 SVG/PNG
   └─ flow:  text: string             <textarea>(uncontrolled) ← 그대로, native IME
@@ -82,6 +82,8 @@ mode: "grid" | "flow"
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `core/fragments.ts`               | `bringToFront`(맨 뒤=맨 위로 쌓기)·`removeById`·`cloneFragments`·`nudge`·`duplicateSelected` — 조각 배열에 대한 순수 로직                                                        |
 | `core/align.ts`                   | `alignEdge`·`distribute`·`computeSnap` — 좌표·크기만 받아 정렬/균등 배치/드래그 스냅 결과를 계산하는 순수 로직(DOM 실측은 호출부 책임)                                           |
+| `core/labels.ts`                  | `normalizeLabel(s)`·`labelsEqual` — 조각 라벨(해시태그) 정규화·비교 순수 로직                                                                                                    |
+| `core/document.ts`                | `serializeDocument`·`parseDocument` — `.palim.json` 저장 포맷(v1) 직렬화/검증. id 미저장                                                                                         |
 | `core/history.ts`                 | `History<T>` — past/future 두 스택만 다루는 범용 undo/redo. 값이 뭔지·어떻게 복제하는지 모름(호출부 책임)                                                                        |
 | `stores/manuscript.ts`            | `fragments`(격자 모드 진실원천) + `text`(흐름 모드 진실원천, 서로 독립) + `mode` ref + `CANVAS`·`FLOW` 상수                                                                      |
 | `stores/editorUi.ts`              | 셸 UI 상태. `typewriter`(localStorage) / `previewOpen`·`paletteOpen`·`chromeVisible`(휘발)                                                                                       |
@@ -145,6 +147,9 @@ mode: "grid" | "flow"
   조각과 6px 안으로 가까워지면 스냅 + 안내선(`core/align.ts`의 `computeSnap`).
   x·y축 독립, 축마다 가장 가까운 후보 하나만, 다중 선택 드래그는 그룹 바운딩
   박스 기준. 근거는 `docs/canvas-editor.md`.
+- **라벨**: 조각별 `labels: string[]`(해시태그형). 편집 중 텍스트 아래 Reka `TagsInput`
+  (Tab으로 이동), 평소엔 조각 아래 `#라벨`. 문서는 ⌘K로 `.palim.json` 저장/불러오기.
+  근거·포커스 함정은 `docs/canvas-editor.md`의 "라벨"·"문서 저장".
 - 자세한 근거·데이터 모델·잃은 것은 `docs/canvas-editor.md`. 시안:
   `design-system/mockups/palim/freeform-canvas-directions.html`.
 

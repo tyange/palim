@@ -3,6 +3,7 @@ export interface Fragment {
   x: number;
   y: number;
   text: string;
+  labels: string[];
 }
 
 export function bringToFront(fragments: Fragment[], id: string): void {
@@ -18,7 +19,7 @@ export function removeById(fragments: Fragment[], id: string): void {
 }
 
 export function cloneFragments(fragments: Fragment[]): Fragment[] {
-  return fragments.map((f) => ({ ...f }));
+  return fragments.map((f) => ({ ...f, labels: [...f.labels] }));
 }
 
 export function nudge(
@@ -45,7 +46,13 @@ export function duplicateSelected(
   const newIds: string[] = [];
   for (const f of toDuplicate) {
     const id = makeId();
-    fragments.push({ id, x: f.x + dx, y: f.y + dy, text: f.text });
+    fragments.push({
+      id,
+      x: f.x + dx,
+      y: f.y + dy,
+      text: f.text,
+      labels: [...f.labels],
+    });
     newIds.push(id);
   }
   return newIds;

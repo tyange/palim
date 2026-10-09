@@ -1,5 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import {
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+  TagsInputRoot,
+} from "reka-ui";
 import { nextTick, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
 import {
   type AlignEdge,
@@ -16,6 +23,7 @@ import {
   nudge,
   removeById,
 } from "../core/fragments";
+import { labelsEqual, normalizeLabels } from "../core/labels";
 import { useEditorUiStore } from "../stores/editorUi";
 import { CANVAS, useManuscriptStore } from "../stores/manuscript";
 import SelectionToolbar from "./SelectionToolbar.vue";
@@ -31,6 +39,7 @@ const fragEls = new Map<string, HTMLElement>();
 const editingId = ref<string | null>(null);
 const editingPos = ref({ x: 0, y: 0 });
 const isNewFragment = ref(false);
+const editingLabels = ref<string[]>([]);
 const selectedIds = ref<Set<string>>(new Set());
 const marquee = ref<{ x: number; y: number; w: number; h: number } | null>(
   null,
@@ -59,6 +68,7 @@ function startEdit(id: string) {
   if (!f) return;
   editingId.value = id;
   editingPos.value = { x: f.x, y: f.y };
+  editingLabels.value = [...f.labels];
   nextTick(() => {
     const el = editorRef.value;
     if (!el) return;
@@ -73,6 +83,7 @@ function startNewFragment(x: number, y: number) {
   isNewFragment.value = true;
   editingId.value = store.fragId();
   editingPos.value = { x, y };
+  editingLabels.value = [];
   nextTick(() => {
     const el = editorRef.value;
     if (!el) return;
@@ -85,6 +96,7 @@ function commitEdit() {
   const id = editingId.value;
   if (id === null) return;
   const text = (editorRef.value?.innerText ?? "").replace(/\n+$/, "");
+  const labels = normalizeLabels(editingLabels.value);
   if (isNewFragment.value) {
     if (text.trim()) {
       store.snapshot();
@@ -93,14 +105,16 @@ function commitEdit() {
         x: editingPos.value.x,
         y: editingPos.value.y,
         text,
+        labels,
       });
     }
   } else {
     const idx = fragments.value.findIndex((f) => f.id === id);
-    if (idx !== -1 && text !== fragments.value[idx].text) {
+    const prev = idx === -1 ? null : fragments.value[idx];
+    if (prev && (text !== prev.text || !labelsEqual(labels, prev.labels))) {
       store.snapshot();
       if (!text.trim()) removeById(fragments.value, id);
-      else fragments.value[idx] = { ...fragments.value[idx], text };
+      else fragments.value[idx] = { ...prev, text, labels };
     }
   }
   editingId.value = null;
@@ -111,6 +125,27 @@ function onEditorKeydown(e: KeyboardEvent) {
   if (e.isComposing || e.key !== "Escape") return;
   e.preventDefault();
   (e.target as HTMLElement).blur();
+}
+
+function onEditFocusOut(e: FocusEvent) {
+  const box = e.currentTarget as HTMLElement;
+  if (e.relatedTarget instanceof Node && box.contains(e.relatedTarget)) return;
+  const pending = box.querySelector<HTMLInputElement>(".label-field")?.value;
+  if (pending)
+    editingLabels.value = normalizeLabels([...editingLabels.value, pending]);
+  commitEdit();
+}
+
+function onEditBoxMouseDown(e: MouseEvent) {
+  const t = e.target as HTMLElement;
+  if (t.isContentEditable || t instanceof HTMLInputElement) return;
+  e.preventDefault();
+}
+
+function onLabelsUpdate(value: unknown) {
+  editingLabels.value = normalizeLabels(
+    (Array.isArray(value) ? value : []).map(String),
+  );
 }
 
 function rectsOverlap(
@@ -400,23 +435,52 @@ onUnmounted(() => {
       @pointerdown="onFragPointerDown($event, f)"
     >
       {{ f.text }}
+      <div v-if="f.labels.length" class="frag-labels">
+        <span v-for="l in f.labels" :key="l">#{{ l }}</span>
+      </div>
     </div>
 
     <div
       v-if="editingId !== null"
-      ref="editorEl"
-      class="frag-editor"
-      contenteditable="true"
-      :style="{
-        left: `${editingPos.x}px`,
-        top: `${editingPos.y}px`,
-        fontSize: `${CANVAS.fontSize}px`,
-        lineHeight: CANVAS.lineHeight,
-        fontFamily: CANVAS.fontFamily,
-      }"
-      @blur="commitEdit"
+      class="edit-box"
+      :style="{ left: `${editingPos.x}px`, top: `${editingPos.y}px` }"
+      @focusout="onEditFocusOut"
       @keydown="onEditorKeydown"
-    ></div>
+      @mousedown="onEditBoxMouseDown"
+    >
+      <div
+        ref="editorEl"
+        class="frag-editor"
+        contenteditable="true"
+        :style="{
+          fontSize: `${CANVAS.fontSize}px`,
+          lineHeight: CANVAS.lineHeight,
+          fontFamily: CANVAS.fontFamily,
+        }"
+      ></div>
+      <TagsInputRoot
+        :model-value="editingLabels"
+        class="label-input"
+        @update:model-value="onLabelsUpdate"
+      >
+        <TagsInputItem
+          v-for="l in editingLabels"
+          :key="l"
+          :value="l"
+          class="label-tag"
+        >
+          <TagsInputItemText class="label-tag-text" />
+          <TagsInputItemDelete class="label-tag-del" aria-label="라벨 삭제">
+            ×
+          </TagsInputItemDelete>
+        </TagsInputItem>
+        <TagsInputInput
+          class="label-field"
+          placeholder="#라벨"
+          aria-label="라벨 추가"
+        />
+      </TagsInputRoot>
+    </div>
 
     <div
       v-if="marquee"
@@ -481,8 +545,28 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.frag-editor {
+.frag-labels {
   position: absolute;
+  top: 100%;
+  left: 4px;
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+  font-family: var(--font-sans, inherit);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.edit-box {
+  position: absolute;
+  width: max-content;
+  max-width: 420px;
+  z-index: 50;
+}
+
+.frag-editor {
   width: max-content;
   min-width: 2ch;
   max-width: 420px;
@@ -493,7 +577,53 @@ onUnmounted(() => {
   border-radius: 3px;
   outline: 2px solid var(--accent);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-  z-index: 50;
+}
+
+.label-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  min-width: 140px;
+  font-family: var(--font-sans, inherit);
+  font-size: 12px;
+  cursor: text;
+}
+.label-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+.label-tag-text::before {
+  content: "#";
+  color: var(--muted);
+}
+.label-tag[data-state="active"] {
+  border-color: var(--accent);
+}
+.label-tag-del {
+  border: 0;
+  background: none;
+  padding: 0 3px;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.label-field {
+  flex: 1;
+  min-width: 60px;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  outline: none;
 }
 
 .marquee {
