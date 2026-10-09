@@ -241,9 +241,8 @@ fragments: Fragment[]  // 배열 순서 = 쌓임 순서(나중 = 위)
 
 ## 문서 저장·불러오기 (`core/document.ts`, `composables/useDocumentFile.ts`)
 
-- 지금까지 palim은 **새로고침하면 모두 사라지는 메모리 전용**이었다. 이번엔 서버·DB
-  없이 **파일**로만 저장한다: ⌘K → "문서 저장 (.palim.json)" / "문서 불러오기…".
-  localStorage 자동저장은 아직 없다(필요해지면 `serializeDocument` 결과를 그대로 쓰면 됨).
+- 서버·DB 없이 **파일**로 저장한다: ⌘K → "문서 저장 (.palim.json)" / "문서 불러오기…".
+  브라우저 자동저장·다중 문서는 `docs/documents.md`(같은 직렬화 포맷을 그대로 쓴다).
 - 포맷(`version: 1`): `{ format: "palim", version, grid: { fragments: [{x,y,text,labels}] },
 flow: { text } }`. 두 모드는 서로 독립 문서라 둘 다 담는다. **id는 저장하지 않는다** —
   불러올 때 `fragId()`로 새로 부여해 이후 생성 id와 충돌하지 않게 한다. 배열 순서 =

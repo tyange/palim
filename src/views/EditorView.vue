@@ -9,7 +9,7 @@ import PreviewOverlay from "../components/PreviewOverlay.vue";
 import { useEditorUiStore } from "../stores/editorUi";
 import { FLOW, useManuscriptStore } from "../stores/manuscript";
 
-const { mode } = storeToRefs(useManuscriptStore());
+const { mode, docId } = storeToRefs(useManuscriptStore());
 const ui = useEditorUiStore();
 const { typewriter, chromeVisible, paletteOpen, previewOpen } = storeToRefs(ui);
 
@@ -73,12 +73,12 @@ onUnmounted(() => {
     @pointermove="revealChrome"
   >
     <div ref="stageRef" class="relative min-w-0 flex-1 overflow-auto">
-      <CanvasEditor v-if="mode === 'grid'" class="min-h-full" />
+      <CanvasEditor v-if="mode === 'grid'" :key="docId" class="min-h-full" />
       <div
         v-else
         class="flex w-full px-[clamp(24px,8vw,160px)] pt-[12vh] pb-[45vh] [justify-content:safe_center]"
       >
-        <FlowEditor @caretmove="onCaretLine" />
+        <FlowEditor :key="docId" @caretmove="onCaretLine" />
       </div>
     </div>
 

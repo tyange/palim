@@ -80,3 +80,14 @@ describe("History", () => {
     expect(h.canRedo).toBe(false);
   });
 });
+
+describe("History.clear", () => {
+  it("과거·미래를 모두 비운다", () => {
+    const h = new History<number>();
+    h.push(1);
+    h.undo(2);
+    h.clear();
+    expect(h.canUndo).toBe(false);
+    expect(h.canRedo).toBe(false);
+  });
+});

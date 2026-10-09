@@ -66,6 +66,7 @@ export const useManuscriptStore = defineStore("manuscript", () => {
   const text = ref(DEAFAULT_VALUE);
   const fragments = ref<Fragment[]>(defaultFragments());
   const mode = ref<WritingMode>("grid");
+  const docId = ref("");
 
   const fragmentsHistory = new History<Fragment[]>();
   const canUndo = ref(false);
@@ -95,7 +96,21 @@ export const useManuscriptStore = defineStore("manuscript", () => {
     text.value = nextText;
   }
 
+  function loadDocument(
+    id: string,
+    nextFragments: Fragment[],
+    nextText: string,
+  ) {
+    docId.value = id;
+    fragments.value = nextFragments;
+    text.value = nextText;
+    fragmentsHistory.clear();
+    syncHistoryFlags();
+  }
+
   return {
+    docId,
+    loadDocument,
     text,
     fragments,
     mode,

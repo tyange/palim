@@ -15,6 +15,7 @@ import {
 } from "reka-ui";
 import { computed, ref, watch } from "vue";
 import { useDocumentFile } from "../composables/useDocumentFile";
+import { useDocuments } from "../composables/useDocuments";
 import { useTheme } from "../composables/useTheme";
 import { useEditorUiStore } from "../stores/editorUi";
 import { useManuscriptStore } from "../stores/manuscript";
@@ -23,6 +24,7 @@ interface Command {
   id: string;
   label: string;
   hint?: string;
+  keepOpen?: boolean;
   run: () => void;
 }
 
@@ -31,11 +33,34 @@ const ui = useEditorUiStore();
 const { paletteOpen, typewriter, previewOpen } = storeToRefs(ui);
 const { isDark, toggle: toggleTheme } = useTheme();
 const { saveDocument, openDocument } = useDocumentFile();
+const docs = useDocuments();
+const { docId } = storeToRefs(useManuscriptStore());
+
+const view = ref<"commands" | "docs">("commands");
+const docList = ref<ReturnType<typeof docs.listDocuments>>([]);
+
+function showDocs() {
+  docList.value = docs.listDocuments();
+  view.value = "docs";
+}
+
+function confirmDelete() {
+  if (window.confirm("이 문서를 삭제할까요? 되돌릴 수 없어요.")) {
+    docs.deleteCurrent();
+  }
+}
 
 const query = ref("");
 const picked = ref<string | null>(null);
 
 const commands = computed<Command[]>(() => [
+  { id: "new-doc", label: "새 문서", run: docs.newDocument },
+  {
+    id: "new-doc-window",
+    label: "새 창에서 새 문서",
+    run: docs.newDocumentInNewWindow,
+  },
+  { id: "open-doc", label: "문서 열기…", keepOpen: true, run: showDocs },
   {
     id: "mode",
     label: mode.value === "grid" ? "흐름 모드로 전환" : "격자 모드로 전환",
@@ -57,6 +82,7 @@ const commands = computed<Command[]>(() => [
     label: "문서 불러오기…",
     run: openDocument,
   },
+  { id: "delete-doc", label: "현재 문서 삭제", run: confirmDelete },
   {
     id: "typewriter",
     label: typewriter.value ? "타자기 모드 끄기" : "타자기 모드 켜기",
@@ -75,17 +101,44 @@ const filtered = computed(() => {
   return commands.value.filter((c) => c.label.toLowerCase().includes(q));
 });
 
+const filteredDocs = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return docList.value;
+  return docList.value.filter((d) => d.title.toLowerCase().includes(q));
+});
+
+function formatTime(ms: number): string {
+  return new Date(ms).toLocaleString("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 watch(paletteOpen, (open) => {
   if (open) {
     query.value = "";
     picked.value = null;
+    view.value = "commands";
   }
 });
 
 watch(picked, (id) => {
   if (!id) return;
+  if (view.value === "docs") {
+    picked.value = null;
+    paletteOpen.value = false;
+    docs.switchTo(id);
+    return;
+  }
   const cmd = commands.value.find((c) => c.id === id);
   picked.value = null;
+  if (cmd?.keepOpen) {
+    query.value = "";
+    cmd.run();
+    return;
+  }
   paletteOpen.value = false;
   cmd?.run();
 });
@@ -104,22 +157,40 @@ watch(picked, (id) => {
           <ListboxFilter
             v-model="query"
             class="palette-input"
-            placeholder="명령 검색…"
+            :placeholder="view === 'docs' ? '문서 검색…' : '명령 검색…'"
             auto-focus
           />
           <ListboxContent class="palette-list">
-            <ListboxItem
-              v-for="cmd in filtered"
-              :key="cmd.id"
-              :value="cmd.id"
-              class="palette-item"
-            >
-              <span>{{ cmd.label }}</span>
-              <kbd v-if="cmd.hint">{{ cmd.hint }}</kbd>
-            </ListboxItem>
-            <p v-if="filtered.length === 0" class="palette-empty">
-              일치하는 명령 없음
-            </p>
+            <template v-if="view === 'docs'">
+              <ListboxItem
+                v-for="d in filteredDocs"
+                :key="d.id"
+                :value="d.id"
+                class="palette-item"
+              >
+                <span>
+                  {{ d.title }}<em v-if="d.id === docId"> · 현재</em>
+                </span>
+                <kbd>{{ formatTime(d.updatedAt) }}</kbd>
+              </ListboxItem>
+              <p v-if="filteredDocs.length === 0" class="palette-empty">
+                일치하는 문서 없음
+              </p>
+            </template>
+            <template v-else>
+              <ListboxItem
+                v-for="cmd in filtered"
+                :key="cmd.id"
+                :value="cmd.id"
+                class="palette-item"
+              >
+                <span>{{ cmd.label }}</span>
+                <kbd v-if="cmd.hint">{{ cmd.hint }}</kbd>
+              </ListboxItem>
+              <p v-if="filtered.length === 0" class="palette-empty">
+                일치하는 명령 없음
+              </p>
+            </template>
           </ListboxContent>
         </ListboxRoot>
       </DialogContent>
@@ -189,6 +260,10 @@ watch(picked, (id) => {
   margin: 0;
   padding: 9px 12px;
   font-size: 14px;
+  color: var(--muted);
+}
+.palette-item em {
+  font-style: normal;
   color: var(--muted);
 }
 .palette-item kbd {

@@ -27,6 +27,11 @@ export class History<T> {
     return next;
   }
 
+  clear(): void {
+    this.past = [];
+    this.future = [];
+  }
+
   get canUndo(): boolean {
     return this.past.length > 0;
   }
