@@ -37,5 +37,9 @@ Palim의 **셸(크롬) UI는 [Reka UI](https://reka-ui.com) headless 프리미�
 - **스코프 CSS 함정.** Reka가 내부에서 렌더하는 요소(예: `ToolbarToggleItem`의 button)는
   부모 컴포넌트의 `data-v-*` 스코프 id를 못 받는다. 그런 요소는 `:deep()`로 스타일한다.
   직접 자식으로 쓴 Reka 컴포넌트의 루트(예: `ToolbarButton`)는 id를 받으므로 그냥 클래스로 된다.
+  렌더리스 컴포넌트(`ToastProvider`)를 루트로 두면 컴포넌트 전체에 id를 받을 요소가 없어
+  `ToastViewport`·`ToastRoot`의 scoped 스타일이 통째로 빠진다(토스트가 위치·z-index 없이
+  떠서 미리보기 배경막 뒤로 가려지던 버그). `AppToaster`는 `.app-toaster` 래퍼 div를 루트로
+  두고 `:deep()`으로 스타일한다. e2e `preview.spec.ts`가 저장 후 토스트 스타일을 검증한다.
 - **모달의 Esc·포커스는 Reka가 처리.** `EditorView`는 ⌘K/⌘↵로 열기만 하고 Esc 배관은 없다.
 - 편집면(`GridEditor`/`FlowEditor`/`Cell`)엔 Reka를 쓰지 않는다 — 맞는 프리미티브가 없다.

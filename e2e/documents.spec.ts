@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+const INITIAL_FRAGMENTS = 29;
+
 async function runCommand(page: Page, label: string) {
   await page.keyboard.press("ControlOrMeta+k");
   await page.getByRole("option", { name: label, exact: true }).click();
@@ -42,7 +44,7 @@ test("새 문서는 빈 캔버스이고, 열기 목록에서 이전 문서로 �
   await runCommand(page, "문서 열기…");
   await page.getByRole("option", { name: /나는 화자가 아니다/ }).click();
   await expect(page).toHaveURL(firstUrl);
-  await expect(page.locator(".frag")).toHaveCount(10);
+  await expect(page.locator(".frag")).toHaveCount(INITIAL_FRAGMENTS);
 });
 
 test("새 창에서 새 문서를 열면 별도 탭에 빈 문서가 뜨고 원래 탭은 그대로다", async ({
@@ -55,7 +57,7 @@ test("새 창에서 새 문서를 열면 별도 탭에 빈 문서가 뜨고 원�
   await other.waitForSelector(".canvas");
   await expect(other.locator(".frag")).toHaveCount(0);
   expect(other.url()).not.toBe(page.url());
-  await expect(page.locator(".frag")).toHaveCount(10);
+  await expect(page.locator(".frag")).toHaveCount(INITIAL_FRAGMENTS);
 });
 
 test("현재 문서를 삭제하면 다른 문서로 이동한다", async ({ page }) => {

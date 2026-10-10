@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
 test("2벌식 조합(ㄱ→가→각)이 끝까지 진행된 뒤 커밋하면 최종 글자만 조각에 남는다", async ({
   page,
 }) => {
-  await openNewFragmentEditor(page, 800, 500);
+  await openNewFragmentEditor(page, 1100, 500);
   const client = await page.context().newCDPSession(page);
 
   await typeComposed(client, ["ㄱ", "가", "각"]);
@@ -34,13 +34,13 @@ test("2벌식 조합(ㄱ→가→각)이 끝까지 진행된 뒤 커밋하면 �
 
   await page.keyboard.press("Escape");
   await expect(page.locator(".frag-editor")).toBeHidden();
-  await expect(page.locator(".frag", { hasText: "각" })).toBeVisible();
+  await expect(page.locator(".frag", { hasText: /^각$/ })).toBeVisible();
 });
 
 test("조합 도중 Escape는 조각 편집을 끝내지 않는다(IME 자체 취소에 맡긴다)", async ({
   page,
 }) => {
-  await openNewFragmentEditor(page, 800, 500);
+  await openNewFragmentEditor(page, 1100, 500);
   const client = await page.context().newCDPSession(page);
 
   await client.send("Input.imeSetComposition", {
@@ -62,7 +62,7 @@ test("조합 도중 Escape는 조각 편집을 끝내지 않는다(IME 자체 �
 test("조합이 끝난 뒤에 누른 Escape는 정상적으로 조각을 커밋하고 닫는다", async ({
   page,
 }) => {
-  await openNewFragmentEditor(page, 800, 500);
+  await openNewFragmentEditor(page, 1100, 500);
   const client = await page.context().newCDPSession(page);
 
   await typeComposed(client, ["ㅁ", "마", "말"]);
@@ -72,22 +72,24 @@ test("조합이 끝난 뒤에 누른 Escape는 정상적으로 조각을 커밋�
   // isComposing이 아니다 — 정상적으로 blur → commitEdit이 일어나야 한다.
   await page.keyboard.press("Escape");
   await expect(page.locator(".frag-editor")).toBeHidden();
-  await expect(page.locator(".frag", { hasText: "말" })).toBeVisible();
+  await expect(page.locator(".frag", { hasText: /^말$/ })).toBeVisible();
 });
 
 test("기존 조각을 재편집할 때도 조합 텍스트가 이어붙어 커밋된다", async ({
   page,
 }) => {
-  await page.locator(".frag", { hasText: "나는 화자가 아니다" }).click();
+  await page.locator(".frag", { hasText: "적절치 못하게 되었다" }).click();
   await page.locator(".frag-editor").waitFor();
   await page.keyboard.press("End");
 
   const client = await page.context().newCDPSession(page);
   await typeComposed(client, ["ㅇ", "요"]);
-  await expect(page.locator(".frag-editor")).toHaveText("나는 화자가 아니다요");
+  await expect(page.locator(".frag-editor")).toHaveText(
+    "적절치 못하게 되었다요",
+  );
 
   await page.keyboard.press("Escape");
   await expect(
-    page.locator(".frag", { hasText: "나는 화자가 아니다요" }),
+    page.locator(".frag", { hasText: "적절치 못하게 되었다요" }),
   ).toBeVisible();
 });

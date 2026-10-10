@@ -434,7 +434,7 @@ onUnmounted(() => {
       }"
       @pointerdown="onFragPointerDown($event, f)"
     >
-      {{ f.text }}
+      <span>{{ f.text }}</span>
       <div v-if="f.labels.length" class="frag-labels">
         <span v-for="l in f.labels" :key="l">#{{ l }}</span>
       </div>
